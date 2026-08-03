@@ -2,14 +2,11 @@ const obstaclesArray = [];
 
 class Obstacle {
   constructor() {
-    // To change Vertical Gap between Obstacles
-    this.top = (Math.random() * canvas.height) / 3 + 0;
-    this.bottom = (Math.random() * canvas.height) / 3 + 0;
-    // ------------------------------------------------
+    // Vertical gap between the two columns.
+    this.top = (Math.random() * canvas.height) / 3;
+    this.bottom = (Math.random() * canvas.height) / 3;
     this.x = canvas.width;
-    // To change Width of Obstacles
     this.width = 20;
-    // ------------------------------------------------
     this.color = "hsla(" + hue + ", 100%, 50%, 1)";
     this.counted = false;
   }
@@ -29,14 +26,21 @@ class Obstacle {
 }
 
 function handleObstacles() {
-  // To change Gap between two consecutive Obstacles
+  // Horizontal gap between consecutive columns.
   if (frame % 80 === 0) {
     obstaclesArray.unshift(new Obstacle());
   }
   for (let i = 0; i < obstaclesArray.length; i++) {
     obstaclesArray[i].update();
   }
-  if (obstaclesArray > 20) {
-    obstaclesArray.pop(obstaclesArray[0]);
+  // Drop columns once they are off-screen. The upstream build compared the array
+  // itself to 20, so this never fired and the array grew for the whole run.
+  while (
+    obstaclesArray.length > 0 &&
+    obstaclesArray[obstaclesArray.length - 1].x + obstaclesArray[obstaclesArray.length - 1].width < 0
+  ) {
+    obstaclesArray.pop();
   }
 }
+
+window.__nyanParts = (window.__nyanParts || 0) + 1;

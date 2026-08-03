@@ -1,214 +1,211 @@
-import Link from "next/link";
+"use client";
 import { useRouter } from "next/router";
 import Script from "next/script";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
-import { quotes } from "../lib/quotes";
+import TokenBar from "./TokenBar";
+import { ExitIcon, PlayIcon, TrophyIcon, XLogo } from "./Icons";
+import { CatMark } from "./Logo";
+import { BRAND, shortAddress } from "../lib/brand";
+import { pickQuote } from "../lib/quotes";
+import { pickTrack } from "../lib/tracks";
 import style from "../styles/InGame.module.css";
 
-const GameCanva = (userId) => {
-  const [userName, setUserName] = useState("");
-  const [userAddress, setUserAddress] = useState();
-  const [currQuote, setCurrQuote] = useState();
+// bird.js / obstacle.js / particles.js each bump window.__nyanParts once they
+// have defined their half of the shared scope. main.js publishes window.NyanGame.
+// The loop is only safe to start when all four have landed — they load async, so
+// arrival order is not guaranteed.
+const PART_COUNT = 3;
+
+const GameCanva = ({ address }) => {
   const router = useRouter();
+  const canvasRef = useRef(null);
+  const panicRef = useRef(null);
+  const audioRef = useRef(null);
+  const dropTimer = useRef(null);
 
-  const quoteArr = [0, 1, 2, 3, 4];
-  const quoteId = quoteArr[Math.floor(Math.random() * 5)];
+  const [engineReady, setEngineReady] = useState(false);
+  const [phase, setPhase] = useState("menu"); // menu | running | over
+  const [lastScore, setLastScore] = useState(0);
+  const [nowPlaying, setNowPlaying] = useState(null);
+  const [quote, setQuote] = useState("");
 
-  const handleEdit = () => {
-    const Input = prompt("Enter your username");
-    if (Input?.length > 16) {
-      alert("Username should not be longer than 16 words");
-      setUserName(localStorage.getItem("userAddress"));
-    } else if (Input !== null) {
-      setUserName(Input);
-    }
-  };
+  useEffect(() => setQuote(pickQuote()), []);
 
-  const handleHighScore = () => {
-    // removing body class as to remove background gifs from game
-    const bodyTag = document.querySelector("body");
-    bodyTag?.classList.remove("InGame_body__b_fQc");
-  };
-
-  const handleExitGame = async () => {
-    const bodyTag = document.querySelector("body");
-    bodyTag?.classList.remove("InGame_body__b_fQc");
-
-    // LOGOUT HERE
-    localStorage.removeItem("wallettoken");
-    localStorage.removeItem("userAddress");
-    router.replace("/");
-  };
-
+  // Poll for the engine instead of guessing at script order.
   useEffect(() => {
-    setUserName(localStorage.getItem("userAddress"));
+    let raf = 0;
+    const check = () => {
+      if (window.NyanGame && (window.__nyanParts || 0) >= PART_COUNT) {
+        setEngineReady(true);
+        return;
+      }
+      raf = requestAnimationFrame(check);
+    };
+    check();
+    return () => cancelAnimationFrame(raf);
   }, []);
 
-  useEffect(() => {
-    // adding body class as to add background gifs for game
-    const bodyTag = document.querySelector("body");
-    bodyTag.classList.add(style.body);
-
-    const fetchQuote = () => {
-      setCurrQuote(quotes[quoteId]);
-    };
-    fetchQuote();
-
-    const showAccount = () => {
-      setUserAddress(userId.userAddress[0]);
-    };
-    showAccount();
-  }, [router, userId.userAddress]);
-
-  const start = () => {
-    const songArr = [1, 2, 3, 4, 5];
-    const songId = songArr[Math.floor(Math.random() * 5)];
-
-    switch (songId) {
-      case 1:
-        const crabrave = new Audio("./soundtracks/crabrave.mp3");
-        crabrave.play().then(() => {
-          toast("Playing! Crab Rave", {
-            icon: "🔥",
-          });
-
-          setTimeout(() => {
-            gamespeed = 10;
-            PanicWindow.style.display = "block";
-          }, 31000);
-        });
-        break;
-
-      case 2:
-        const runninginthe90s = new Audio("./soundtracks/runninginthe90s.mp3");
-        runninginthe90s.play().then(() => {
-          toast("Playing! Running in the 90s", {
-            icon: "🔥",
-          });
-
-          setTimeout(() => {
-            gamespeed = 10;
-            PanicWindow.style.display = "block";
-          }, 36000);
-        });
-        break;
-
-      case 3:
-        const dejavu = new Audio("./soundtracks/dejavu.mp3");
-        dejavu.play().then(() => {
-          toast("Playing! Deja Vu", {
-            icon: "🔥",
-          });
-
-          setTimeout(() => {
-            gamespeed = 10;
-            PanicWindow.style.display = "block";
-          }, 37500);
-        });
-        break;
-
-      case 4:
-        const gasgasgas = new Audio("./soundtracks/gasgasgas.mp3");
-        gasgasgas.play().then(() => {
-          toast("Playing! Gas Gas Gas", {
-            icon: "🔥",
-          });
-
-          setTimeout(() => {
-            gamespeed = 10;
-            PanicWindow.style.display = "block";
-          }, 37500);
-        });
-        break;
-
-      case 5:
-        const fnaf = new Audio("./soundtracks/fnaf.mp3");
-        fnaf.play().then(() => {
-          toast("Playing! Five Nights at Freddy's 2", {
-            icon: "🔥",
-          });
-
-          setTimeout(() => {
-            gamespeed = 10;
-            PanicWindow.style.display = "block";
-          }, 41000);
-        });
-        break;
-
-      default:
-        break;
+  const stopAudio = useCallback(() => {
+    clearTimeout(dropTimer.current);
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current = null;
     }
-  };
+  }, []);
+
+  // Bind the canvas and the player once the engine is up.
+  useEffect(() => {
+    if (!engineReady) return;
+    const game = window.NyanGame;
+    game.mount(canvasRef.current, panicRef.current);
+    game.setPlayer(address || null);
+    game.onEnd((final) => {
+      stopAudio();
+      setLastScore(final);
+      setPhase("over");
+    });
+
+    return () => {
+      game.onEnd(null);
+      game.stop();
+      stopAudio();
+    };
+  }, [engineReady, address, stopAudio]);
+
+  const startRun = useCallback(() => {
+    const game = window.NyanGame;
+    if (!game?.start) {
+      toast.error("The engine is still loading — one moment.");
+      return;
+    }
+
+    stopAudio();
+    const track = pickTrack();
+    setNowPlaying(track.title);
+
+    const audio = new Audio(track.src);
+    audio.volume = 0.7;
+    audioRef.current = audio;
+    // The run does not wait on the audio: an autoplay refusal should cost you the
+    // music, not the game. The drop is scheduled either way.
+    audio.play().catch(() => {
+      toast("Sound is blocked in this tab — playing without it.");
+    });
+
+    dropTimer.current = setTimeout(() => game.enterPanic(), track.dropMs);
+
+    setLastScore(0);
+    setPhase("running");
+    game.start();
+  }, [stopAudio]);
+
+  const leave = useCallback(() => {
+    window.NyanGame?.stop();
+    stopAudio();
+    router.push("/dashboard");
+  }, [router, stopAudio]);
 
   return (
     <>
-      <Script src="./scripts/main.js" async></Script>
-      <Script src="./scripts/bird.js" async></Script>
-      <Script src="./scripts/particles.js" async></Script>
-      <Script src="./scripts/obstacle.js" async></Script>
-      <div>
-        <div className={style.peripheral}>
-          <div>
-            <h2 id="addressBar" className={style.address}>
-              Deploying as{" "}
-              <span id="userTitle">
-                {userName
-                  ? userName
-                  : `${userAddress?.slice(0, 6)}...${userAddress?.slice(39)}`}
-              </span>
-              {/* <EditIcon className={style.Edit} onClick={handleEdit}></EditIcon> */}
-            </h2>
-            <h2 className={style.Quotes}>&quot;{currQuote}&quot;</h2>
-            <h3 className={style.legend}>
-              <div>
-                &quot; Legends say it gets 10x fun after that beat drops &quot;{" "}
-                <br></br>
-              </div>
-              <sub style={{ fontWeight: "normal" }}> - Legends themself</sub>
-            </h3>
-          </div>
-          {/* <div className={style.marq}>
-            <Marq userName={userName}></Marq>
-          </div> */}
-        </div>
-        <div className={style.wrapper} id="menu">
-          <div className={style.allthethings}>
-            {/* <div className={style.left}></div> */}
-            <div className={style.single} id="single" onClick={start}>
-              <p>Play</p>
+      {/* afterInteractive: the canvas exists before any of this runs. */}
+      <Script src="/scripts/main.js" strategy="afterInteractive" />
+      <Script src="/scripts/bird.js" strategy="afterInteractive" />
+      <Script src="/scripts/particles.js" strategy="afterInteractive" />
+      <Script src="/scripts/obstacle.js" strategy="afterInteractive" />
+
+      <div className={style.stage}>
+        <header className={style.hud}>
+          <div className={style.hudLeft}>
+            <CatMark width={68} className={style.hudMark} />
+            <div>
+              <h1 className={style.hudTitle}>{BRAND.name}</h1>
+              <p className={style.address} data-testid="game-address">
+                {address ? `Playing as ${shortAddress(address)}` : "Guest run"}
+              </p>
             </div>
-            <Link
-              target="_blank"
-              href={{
-                pathname: "/leaderboard",
-                query: userAddress,
-              }}
-            >
-              <div className={style.options}>
-                <p onClick={handleHighScore}>High Score</p>
-              </div>
-            </Link>
-            <a
-              target="_blank"
-              href="https://github.com/Seek4samurai/project-giga-cat"
-              rel="noopener noreferrer"
-            >
-              <div className={style.credits}>
-                <p>Support</p>
-              </div>
-            </a>
-            {/* <div className={style.right}></div> */}
-            <div className={style.exit} onClick={handleExitGame}></div>
-            <div className={style.circle}></div>
           </div>
+          <TokenBar compact className={style.hudTokens} />
+        </header>
+
+        <div className={style.arena}>
+          <canvas className={style.canvas1} id="canvas1" ref={canvasRef} />
+          <div className={style.box} id="box" ref={panicRef} />
+
+          {phase === "menu" && (
+            <div className={style.overlay} data-testid="menu">
+              <p className={style.quote}>&ldquo;{quote}&rdquo;</p>
+              <button
+                className={style.primary}
+                onClick={startRun}
+                disabled={!engineReady}
+                data-testid="start"
+              >
+                <PlayIcon className={style.btnIcon} aria-hidden="true" />
+                {engineReady ? "Play" : "Loading…"}
+              </button>
+              <p className={style.hint}>
+                Hold <kbd>SPACE</kbd> to climb. The drop hits mid-track.
+              </p>
+              <div className={style.row}>
+                <button className={style.ghost} onClick={() => router.push("/leaderboard")}>
+                  <TrophyIcon className={style.btnIcon} aria-hidden="true" />
+                  Leaderboard
+                </button>
+                <a
+                  className={style.ghost}
+                  href={BRAND.x}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <XLogo className={style.btnIcon} aria-hidden="true" />
+                  Follow
+                </a>
+                <button className={style.ghost} onClick={leave}>
+                  <ExitIcon className={style.btnIcon} aria-hidden="true" />
+                  Lobby
+                </button>
+              </div>
+            </div>
+          )}
+
+          {phase === "over" && (
+            <div className={style.overlay} data-testid="run-over">
+              <p className={style.overTitle}>Run over</p>
+              <p className={style.overScore}>
+                {lastScore} <span>pts</span>
+              </p>
+              <p className={style.hint}>
+                {address
+                  ? "Filed under your wallet."
+                  : "Connect a wallet to get on the board."}
+              </p>
+              <button className={style.primary} onClick={startRun} data-testid="again">
+                <PlayIcon className={style.btnIcon} aria-hidden="true" />
+                Again
+              </button>
+              <div className={style.row}>
+                <button className={style.ghost} onClick={() => router.push("/leaderboard")}>
+                  <TrophyIcon className={style.btnIcon} aria-hidden="true" />
+                  Leaderboard
+                </button>
+                <button className={style.ghost} onClick={leave}>
+                  <ExitIcon className={style.btnIcon} aria-hidden="true" />
+                  Lobby
+                </button>
+              </div>
+            </div>
+          )}
         </div>
-        <canvas className={style.canvas1} id="canvas1"></canvas>
-        <div className={style.box} id="box"></div>
-        <p className={style.warning}>
-          If you face any bugs related to scripts not loading or soundtracks
-          overlapping, <br></br>Please consider refreshing the page.
-        </p>
+
+        <footer className={style.footer}>
+          {phase === "running" && nowPlaying ? (
+            <span className={style.track}>Now playing — {nowPlaying}</span>
+          ) : (
+            <span className={style.track}>Above 50 pts the track goes Panic.</span>
+          )}
+        </footer>
       </div>
     </>
   );

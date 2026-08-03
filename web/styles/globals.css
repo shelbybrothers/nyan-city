@@ -1,9 +1,59 @@
+/* Palette sampled straight out of the source art (~/experimental/nyan.png) —
+   see tools/make-assets.mjs, which reads the same values. Every module below
+   uses these tokens; nothing hardcodes a brand colour twice. */
+:root {
+  --navy: #013568; /* the background of the source image, exactly */
+  --navy-deep: #01203f;
+  --navy-abyss: #010f1f;
+  --panel: rgba(1, 22, 44, 0.74);
+  --panel-edge: rgba(198, 244, 3, 0.18);
+
+  --green: #c6f403; /* nyan green */
+  --green-hot: #d9ff3a;
+  --green-dim: #9cc002;
+
+  --ink: #050505; /* the outline black */
+  --text: #eaf6ff;
+  --text-dim: rgba(234, 246, 255, 0.62);
+  --text-faint: rgba(234, 246, 255, 0.38);
+
+  --rainbow: linear-gradient(
+    90deg,
+    #fb0201,
+    #fd9502,
+    #fdfb05,
+    #2cfa04,
+    #0096fd,
+    #6331fd
+  );
+}
+
 html,
 body {
   padding: 0;
   margin: 0;
-  font-family: Ubuntu, Segoe UI, Roboto, Oxygen, Ubuntu, Cantarell, Fira Sans,
-    Droid Sans, Helvetica Neue, sans-serif;
+  color: var(--text);
+  background: var(--navy-abyss);
+  /* --font-display / --font-body are injected by _app.js (next/font). The stack
+     after them is what renders before the woff2 lands, and if it never does. */
+  font-family: var(--font-body), "Trebuchet MS", Ubuntu, "Segoe UI", sans-serif;
+  font-size: 17px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Arcade face, short strings only — headings, the score, the ticker. It has one
+   weight, so asking for bold would only smear it. */
+h1,
+h2,
+h3 {
+  font-family: var(--font-display), "Courier New", monospace;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.35;
+}
+
+kbd {
+  font-family: var(--font-display), "Courier New", monospace;
 }
 
 a {
@@ -11,16 +61,25 @@ a {
   text-decoration: none;
 }
 
+button {
+  font-family: inherit;
+}
+
 * {
   box-sizing: border-box;
 }
 
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
-  }
-  body {
-    color: white;
-    background: black;
-  }
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+::selection {
+  color: var(--ink);
+  background: var(--green);
+}
+
+:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
 }

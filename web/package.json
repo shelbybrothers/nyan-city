@@ -1,23 +1,24 @@
 {
-  "name": "gigacat",
-  "version": "0.1.0",
+  "name": "nyan-city",
+  "version": "1.0.0",
   "private": true,
+  "description": "nyan.city — a rhythm-runner on the Robinhood Chain. $NYAN.",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 5740",
     "build": "next build",
-    "start": "next start",
-    "lint": "next lint"
+    "start": "next start -p 5740",
+    "lint": "next lint",
+    "verify": "node ../tools/verify.mjs"
   },
   "dependencies": {
     "@upstash/redis": "^1.35.6",
-    "ethers": "^6.15.0",
-    "next": "^12.2.3",
-    "react": "18.2.0",
-    "react-dom": "18.2.0",
+    "next": "^15.5.22",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
     "react-hot-toast": "^2.3.0"
   },
   "devDependencies": {
-    "eslint": "8.21.0",
-    "eslint-config-next": "12.2.3"
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^15.5.22"
   }
 }

@@ -1,34 +1,30 @@
+import { shortAddress } from "../lib/brand";
 import style from "../styles/UserTile.module.css";
 
-const UserTile = ({ score }) => {
+/**
+ * One row of the board. `member` is normally a wallet address; a run submitted
+ * before a wallet existed falls back to whatever label came with it, so render
+ * anything that is not 0x-shaped verbatim rather than slicing it into nonsense.
+ */
+const UserTile = ({ rank, member, score, isMe = false }) => {
+  const label = /^0x[0-9a-fA-F]{6,}$/.test(String(member || ""))
+    ? shortAddress(member)
+    : String(member || "unknown");
+
   return (
-    <>
-      <div className={style.container}>
-        <div className={style.Badge}></div>
-        <div className={style.Address}>
-          {score ? `${score[0]?.slice(0, 6)}...${score[0]?.slice(39)}` : null}
-        </div>
-        <span className={style.Score}>{score ? score[1] : null} pts.</span>
+    <div
+      className={`${style.container} ${isMe ? style.me : ""}`}
+      data-testid="board-row"
+    >
+      <div className={`${style.Badge} ${style[`rank${rank}`] || ""}`}>
+        {rank}
       </div>
-      <div className={style.container}>
-        <div className={style.Badge}></div>
-        <div className={style.Address}>
-          {score[2]
-            ? `${score[2]?.slice(0, 6)}...${score[2]?.slice(39)}`
-            : null}
-        </div>
-        <span className={style.Score}>{score ? score[3] : null} pts.</span>
+      <div className={style.Address} title={member}>
+        {label}
+        {isMe && <span className={style.youTag}>you</span>}
       </div>
-      <div className={style.container}>
-        <div className={style.Badge}></div>
-        <div className={style.Address}>
-          {score[4]
-            ? `${score[4]?.slice(0, 6)}...${score[4]?.slice(39)}`
-            : null}
-        </div>
-        <span className={style.Score}>{score[5] ? score[5] : null} pts.</span>
-      </div>
-    </>
+      <span className={style.Score}>{score} pts</span>
+    </div>
   );
 };
 

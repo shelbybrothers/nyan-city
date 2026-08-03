@@ -1,71 +1,92 @@
 "use client";
+import Head from "next/head";
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { useAuth } from "../hooks/useAuth";
-import { useAuthStatus } from "../hooks/useAuthStatus";
-import { User } from "../public/assets/SVGs";
-import style from "../styles/Dashboard.module.css";
 import { useRouter } from "next/router";
+import TokenBar from "../components/TokenBar";
+import { ExitIcon, PlayIcon, TrophyIcon, WalletIcon } from "../components/Icons";
+import { CatMark } from "../components/Logo";
+import { useWalletSession } from "../hooks/useWallet";
+import { BRAND, TICKER, shortAddress } from "../lib/brand";
+import { CHAIN } from "../lib/chain";
+import style from "../styles/Dashboard.module.css";
 
 const Dashboard = () => {
-  useAuth("dashboard");
   const router = useRouter();
-  const { isAuthenticated, loading } = useAuthStatus();
-  const [userAddress, setUserAddress] = useState(null);
+  const { address, ready, disconnect } = useWalletSession({ required: true });
 
-  const handleLogout = async () => {
-    localStorage.removeItem("wallettoken");
-    localStorage.removeItem("userAddress");
-    router.replace("/");
-  };
-
-  useEffect(() => {
-    const address = localStorage.getItem("userAddress");
-    setUserAddress(address);
-  }, []);
+  // Hold the frame until the session is known — otherwise the gate flashes.
+  if (!ready || !address) return null;
 
   return (
-    <div className={style.body}>
-      <div className={style.container}>
-        <div className={style.TopBar}>
-          <div className={style.Profile}>
-            <User></User>
+    <>
+      <Head>
+        <title>{`Lobby — ${BRAND.name}`}</title>
+      </Head>
+
+      <div className={style.body}>
+        <div className={style.container}>
+          <header className={style.TopBar}>
+            <CatMark width={92} className={style.mark} />
+            <div className={style.who}>
+              <h1 className={style.Head}>{BRAND.name}</h1>
+              <p className={style.address} data-testid="address">
+                <WalletIcon className={style.addressIcon} aria-hidden="true" />
+                {shortAddress(address)}
+                <span className={style.chainTag}>{CHAIN.name}</span>
+              </p>
+            </div>
+          </header>
+
+          <div className={style.actions}>
+            <button
+              className={style.PlayBtn}
+              onClick={() => router.push("/game")}
+              data-testid="play"
+            >
+              <PlayIcon className={style.btnIcon} aria-hidden="true" />
+              Play
+            </button>
+            <Link
+              href="/leaderboard"
+              className={style.SecondaryBtn}
+              data-testid="leaderboard-link"
+            >
+              <TrophyIcon className={style.btnIcon} aria-hidden="true" />
+              Leaderboard
+            </Link>
           </div>
-          <h1 className={style.Head}>
-            Welcome {userAddress?.slice(0, 6)}...{userAddress?.slice(39)}
-          </h1>
-        </div>
-        <Link
-          href={{
-            pathname: "/game",
-            query: userAddress,
-          }}
-        >
-          <button className={style.PlayBtn}>
-            <a>PLAY!</a>
+
+          <h2 className={style.SubHead}>How to play</h2>
+          <div className={style.Content}>
+            <p>
+              Hold <span>SPACE</span> to climb, let go to fall. Thread the gaps —
+              that is the whole game.
+            </p>
+            <p>
+              Above <span>50 pts</span> the track drops into a Panic phase and
+              everything speeds up. That is where the runs are made.
+            </p>
+            <p>
+              Your best run is filed under your wallet, so the{" "}
+              <span>leaderboard</span> is one row per holder.
+            </p>
+          </div>
+
+          <TokenBar className={style.tokens} />
+
+          <button className={style.LogoutBtn} onClick={disconnect} data-testid="disconnect">
+            <ExitIcon className={style.btnIcon} aria-hidden="true" />
+            Disconnect
           </button>
-        </Link>
-        <h1 className={style.Head}>How to play</h1>
-        <div className={style.Content}>
-          <p>
-            If you were a real gamer...you would have skipped this part, but
-            anyways use <span>SPACE </span>to dodge obstacles (simple as that).
-          </p>
-          <p>
-            Player with highest run will be shown on the{" "}
-            <span>leaderboard</span>.
-          </p>
-          <p>
-            Scores are erased after every few hours, so make sure to return back
-            & <br></br>
-            <span>hold your grounds</span>.
+
+          <p className={style.fine}>
+            {TICKER} is cosmetic to the game — nothing here spends, approves, or
+            transfers anything from your wallet.
           </p>
         </div>
-        <button className={style.LogoutBtn} onClick={handleLogout}>
-          Logout
-        </button>
       </div>
-    </div>
+    </>
   );
 };
+
 export default Dashboard;

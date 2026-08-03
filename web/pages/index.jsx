@@ -1,125 +1,108 @@
 "use client";
-
-import { ethers } from "ethers";
-import Image from "next/image";
+import Head from "next/head";
 import { useRouter } from "next/router";
-import { useAuth } from "../hooks/useAuth";
-import { Github, LinkedIn, SVG_1, SVG_2 } from "../public/assets/SVGs";
-import MetaMask from "../public/MetaMaskSVG.svg";
-import style from "../styles/Login.module.css";
+import { useEffect } from "react";
+import toast from "react-hot-toast";
+import TokenBar from "../components/TokenBar";
+import { ChainIcon, WalletIcon } from "../components/Icons";
+import { LogoLockup } from "../components/Logo";
+import { useWalletSession } from "../hooks/useWallet";
+import { BRAND, TICKER } from "../lib/brand";
+import { CHAIN, WALLET_DOWNLOAD } from "../lib/chain";
+import style from "../styles/Landing.module.css";
 
-export default function Home() {
-  useAuth("dashboard");
+export default function Landing() {
   const router = useRouter();
+  const { address, ready, connecting, connect, walletAvailable } =
+    useWalletSession();
 
-  const handleLogin = async () => {
-    if (!window.ethereum) {
-      alert("MetaMask not found!");
+  // Already signed in? Skip the door.
+  useEffect(() => {
+    if (ready && address) router.replace("/dashboard");
+  }, [ready, address, router]);
+
+  const handleConnect = async () => {
+    if (!walletAvailable) {
+      toast.error("No wallet detected in this browser.");
       return;
     }
-
     try {
-      await window.ethereum.request({ method: "eth_requestAccounts" });
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const signer = await provider.getSigner();
-      const address = await signer.getAddress();
-
-      const res1 = await fetch("http://localhost:8000/nonce", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ address }),
-      });
-      const { nonce } = await res1.json();
-
-      const signature = await signer.signMessage(nonce);
-
-      const res2 = await fetch("http://localhost:8000/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ address, signature }),
-      });
-
-      const data = await res2.json();
-
-      if (data.token) {
-        localStorage.setItem("wallettoken", data.token);
-
-        localStorage.setItem("userAddress", address);
-
-        router.replace("/dashboard");
-        return { address, token: data.token };
-      } else {
-        return null;
-      }
+      const { onChain } = await connect();
+      toast.success(
+        onChain
+          ? `Connected on ${CHAIN.name}`
+          : `Connected — switch to ${CHAIN.name} when you can`
+      );
+      router.replace("/dashboard");
     } catch (err) {
-      console.error("MetaMask login error:", err);
-      return null;
+      toast.error(err?.message || "Could not connect.");
     }
   };
 
   return (
-    <div className={style.body}>
-      <div className={style.container}>
-        <div className={style.SVGContainer}>
-          <div className={style.SVG_1}>
-            <SVG_1></SVG_1>
-          </div>
-          <div className={style.SVG_2}>
-            <SVG_2></SVG_2>
-          </div>
-        </div>
-        <div className={style.TopBarContainer}>
-          <div className={style.MeetCreatorContainer}>
-            <div className={style.LinkedIn}>
-              <LinkedIn></LinkedIn>
-            </div>
-            <a
-              target="_blank"
-              rel="noopener noreferrer"
-              href="https://www.linkedin.com/in/seek4samurai/"
-              style={{ cursor: "pointer" }}
-            >
-              <h3 style={{ textDecoration: "underline" }}>Meet Creator!</h3>
-            </a>
-          </div>
-          <div className={style.Contribute}>
-            <div className={style.Github}>
-              <Github></Github>
-            </div>
-            <a
-              target="_blank"
-              rel="noopener noreferrer"
-              href="https://github.com/Seek4samurai/project-giga-cat"
-              style={{ cursor: "pointer" }}
-            >
-              <h3 style={{ textDecoration: "underline" }}>Contribute!</h3>
-            </a>
-          </div>
-        </div>
-        <div className={style.LoginBox}>
-          <div className={style.MetaMaskContainer}>
-            <Image src={MetaMask} alt="MetaMask"></Image>
-          </div>
-          <div className={style.Welcome}>
-            <h2>Welcome back</h2>
-            <h4>A Decentralised Web awaits.</h4>
-          </div>
-          <button className={style.LoginBtn} onClick={handleLogin}>
-            Connect Wallet
-          </button>
-          <h4 className={style.Message}>
-            You’ll need a Web 3.0 Wallet to <br></br>authenticate
-          </h4>
-          <a
-            target="_blank"
-            rel="noopener noreferrer"
-            href="https://metamask.io/"
-            style={{ cursor: "pointer" }}
+    <>
+      <Head>
+        <title>{`${BRAND.name} — ${TICKER}`}</title>
+        <meta name="description" content={BRAND.description} />
+      </Head>
+
+      <main className={style.body}>
+        <div className={style.stars} aria-hidden="true" />
+        <div className={style.ribbon} aria-hidden="true" />
+
+        <div className={style.card}>
+          <LogoLockup width={420} className={style.mark} />
+
+          <h1 className={style.wordmark}>
+            nyan<span className={style.dot}>.</span>city
+          </h1>
+
+          <p className={style.ticker}>{TICKER}</p>
+          <p className={style.tagline}>{BRAND.tagline}</p>
+
+          <button
+            className={style.connect}
+            onClick={handleConnect}
+            disabled={connecting}
+            data-testid="connect"
           >
-            <button className={style.DownloadBtn}>Download MetaMask</button>
-          </a>
+            <WalletIcon className={style.connectIcon} aria-hidden="true" />
+            {connecting ? "Connecting…" : "Connect Wallet"}
+          </button>
+
+          <p className={style.chain} data-testid="chain-note">
+            <ChainIcon className={style.chainIcon} aria-hidden="true" />
+            {CHAIN.name} · identity only — no approvals, no transfers
+          </p>
+
+          {!walletAvailable && (
+            <a
+              className={style.getWallet}
+              href={WALLET_DOWNLOAD}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Get a wallet
+            </a>
+          )}
+
+          <TokenBar className={style.tokens} />
         </div>
-      </div>
-    </div>
+
+        <footer className={style.footer}>
+          <span>
+            Rhythm engine forked from{" "}
+            <a
+              href="https://github.com/Seek4samurai/project-giga-cat"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              project-giga-cat
+            </a>{" "}
+            (MIT).
+          </span>
+        </footer>
+      </main>
+    </>
   );
 }

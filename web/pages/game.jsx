@@ -1,19 +1,21 @@
 "use client";
-import { useRouter } from "next/router";
+import Head from "next/head";
 import GameCanva from "../components/GameCanva";
-import { useAuth } from "../hooks/useAuth";
+import { useWalletSession } from "../hooks/useWallet";
+import { BRAND } from "../lib/brand";
 
 const Game = () => {
-  const router = useRouter();
-  const data = router.query;
-  const userId = Object.keys(data);
+  const { address, ready } = useWalletSession({ required: true });
 
-  useAuth("game");
+  if (!ready || !address) return null;
 
   return (
-    <div>
-      <GameCanva userAddress={userId}></GameCanva>
-    </div>
+    <>
+      <Head>
+        <title>{`Run — ${BRAND.name}`}</title>
+      </Head>
+      <GameCanva address={address} />
+    </>
   );
 };
 

@@ -1,26 +1,17 @@
-import { Redis } from "@upstash/redis";
-
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN,
-});
+import { topScores } from "../../lib/store";
 
 export default async function handler(req, res) {
+  if (req.method !== "GET") {
+    res.setHeader("Allow", ["GET"]);
+    return res.status(405).end(`Method ${req.method} Not Allowed`);
+  }
+
   try {
-    if (req.method === "GET") {
-      // Return top 3 leaderboard only
-      const topScores = await redis.zrange("scores", 0, 2, {
-        withScores: true,
-        rev: true,
-      });
-
-      return res.status(200).json({ scores: topScores });
-    }
-
-    res.setHeader("Allow", ["GET", "POST"]);
-    res.status(405).end(`Method ${req.method} Not Allowed`);
+    const count = Math.min(Math.max(Number(req.query.count) || 3, 1), 25);
+    const scores = await topScores(count);
+    return res.status(200).json({ scores });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error("[nyan.city] search:", error);
+    return res.status(500).json({ error: "Could not read the board" });
   }
 }

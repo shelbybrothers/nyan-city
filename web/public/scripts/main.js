@@ -1,14 +1,17 @@
-// Get the canvas and its bounds
-const canvas = document.getElementById("canvas1");
-const PanicWindow = document.getElementById("box");
-let canvasLeftBound = canvas.offsetLeft;
-let canvasUpperBound = canvas.offsetTop;
+// nyan.city — rhythm-runner core.
+//
+// These four files are classic scripts, not modules, so they share one top-level
+// scope: bird.js / obstacle.js / particles.js reach `canvas`, `ctx`, `gamespeed`,
+// `hue`, `angle`, `frame`, `score` and `spacePresssed` by name from here. Keep the
+// declarations below at top level or those files stop resolving.
+//
+// React owns the DOM and the menu; this file owns the loop. The bridge between
+// them is `window.NyanGame` — nothing here queries React's markup or removes its
+// nodes, which is what the upstream build did.
 
-const startBtn = document.getElementById("single");
-const menuDom = document.getElementById("menu");
-const ctx = canvas.getContext("2d");
-canvas.width = 600;
-canvas.height = 400;
+let canvas = null;
+let ctx = null;
+let PanicWindow = null;
 
 let state = false;
 let isDead = false;
@@ -18,133 +21,164 @@ let hue = 0;
 let frame = 0;
 let score = 0;
 let gamespeed = 2;
-let user = "Stranger";
 
-// Background-----------------------------
+// Set by React from the connected wallet; the board is keyed on it.
+let playerAddress = null;
+let onEndCallback = null;
+let rafId = 0;
+
 const background = new Image();
-background.src = "../assets/BG.png";
-const BG = {
-  x1: 0,
-  x2: canvas.width,
-  y: 0,
-  width: canvas.width,
-  height: canvas.height,
-};
-// function handleBackground() {
-//   if (BG.x1 <= -BG.width + gamespeed) BG.x1 = BG.width;
-//   else BG.x1 -= gamespeed;
-//   if (BG.x2 <= -BG.width + gamespeed) BG.x2 = BG.width;
-//   else BG.x2 -= gamespeed;
-//   ctx.drawImage(background, BG.x1, BG.y, BG.width, BG.height);
-//   ctx.drawImage(background, BG.x2, BG.y, BG.width, BG.height);
-// }
+background.src = "/assets/BG.png";
 
-// ----------------------------------------------------------
+const bang = new Image();
+bang.src = "/assets/bang.png";
 
 function animate() {
+  if (!ctx || !canvas) return;
+
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  // ctx.fillRect(10, canvas.height - 90, 50, 50);
-  // handleBackground();
   handleObstacles();
+
   if (handleCollisions()) {
     isDead = true;
     state = false;
-    renderDeadBtn();
+    endRun();
     return;
   }
+
   bird.update();
   bird.draw();
+
   ctx.fillStyle = "hsla(" + hue + ", 100%, 50%, 1)";
   ctx.font = "90px Georgia";
   ctx.strokeText(score, 450, 70);
   ctx.fillText(score, 450, 70);
+
   handleParticles();
-  handleCollisions();
-  requestAnimationFrame(animate);
+
+  rafId = requestAnimationFrame(animate);
   angle += 0.12;
   hue += 10;
   frame++;
 }
 
-if (state) {
-  animate();
-}
-
 window.addEventListener("keydown", function (e) {
-  if (e.code === "Space") spacePresssed = true;
+  if (e.code === "Space") {
+    spacePresssed = true;
+    // Keep the page from scrolling out from under a run.
+    if (state) e.preventDefault();
+  }
 });
 
 window.addEventListener("keyup", function (e) {
   if (e.code === "Space") spacePresssed = false;
 });
 
-startBtn.addEventListener("click", () => {
-  state = true;
-  menuDom.parentNode.removeChild(menuDom);
-  animate();
-});
-
-// Collision Detection----------------------------------------------------
-const bang = new Image();
-bang.src = "../assets/bang.png";
+// ── collision ───────────────────────────────────────────────────────────────
 function handleCollisions() {
   for (let i = 0; i < obstaclesArray.length; i++) {
-    if (
-      bird.x < obstaclesArray[i].x + obstaclesArray[i].width &&
-      bird.x + bird.width > obstaclesArray[i].x &&
-      ((bird.y < 0 + obstaclesArray[i].top && bird.y + bird.height > 0) ||
-        (bird.y > canvas.height - obstaclesArray[i].bottom &&
-          bird.y + bird.height < canvas.height))
-      //Collision Detection
-    ) {
+    const o = obstaclesArray[i];
+    const overlapsColumn = bird.x < o.x + o.width && bird.x + bird.width > o.x;
+    const hitsTop = bird.y < o.top && bird.y + bird.height > 0;
+    const hitsBottom =
+      bird.y > canvas.height - o.bottom && bird.y + bird.height < canvas.height;
+
+    if (overlapsColumn && (hitsTop || hitsBottom)) {
       ctx.drawImage(bang, bird.x, bird.y, 50, 50);
       ctx.font = "25px Georgia";
-      ctx.fillStyle = "White";
+      ctx.fillStyle = "white";
+      ctx.textAlign = "center";
       ctx.fillText(
-        "Game Over, Your Score is " + score,
-        160,
+        "Run over — " + score + " pts",
+        canvas.width / 2,
         canvas.height / 2 - 10
       );
-      const queryString = window.location.search.split("?");
-      const userTitle = document.getElementById("userTitle");
-      const user = userTitle.innerText;
-      const userAddress = queryString[1];
-
-      testing(user, score, userAddress);
+      ctx.textAlign = "start";
       return true;
     }
   }
+  return false;
 }
 
-// Render Btn and handle click events
-function renderDeadBtn() {
-  ctx.fillStyle = "#006680";
-  ctx.fillRect(240, 200, 120, 40);
-  ctx.font = "30px Georgia";
-  ctx.fillStyle = "white";
-  ctx.textAlign = "center";
-  ctx.fillText("Return!", canvas.width / 2, canvas.height / 2 + 30);
+/** File the run, then hand control back to React for the end-of-run UI. */
+function endRun() {
+  cancelAnimationFrame(rafId);
+  const final = score;
+  submitScore(playerAddress, final);
+  if (typeof onEndCallback === "function") onEndCallback(final);
 }
 
-canvas.addEventListener("click", (e) => {
-  let x = e.pageX - canvasLeftBound;
-  let y = e.pageY - canvasUpperBound;
-
-  if (y > 0 && y < 40 && x > -60 && x < 60) {
-    location.reload();
+async function submitScore(address, points) {
+  if (!address) return; // an unauthenticated run is not board-worthy
+  try {
+    await fetch("/api/score", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ address: address, score: points }),
+    });
+  } catch (err) {
+    console.warn("[nyan.city] could not file that run:", err);
   }
-});
+}
 
-const testing = async (user, score, userAddress) => {
-  await fetch("/api/score", {
-    body: JSON.stringify({
-      name: user,
-      address: userAddress,
-      score: score,
-    }),
-    headers: {
-      "Content-Type": "application/json",
-    },
-    method: "POST",
-  });
+// ── bridge ──────────────────────────────────────────────────────────────────
+window.NyanGame = {
+  /** Bind to the canvas React just rendered. Safe to call on every mount. */
+  mount(canvasEl, panicEl) {
+    canvas = canvasEl;
+    PanicWindow = panicEl || null;
+    if (!canvas) return false;
+    ctx = canvas.getContext("2d");
+    canvas.width = 600;
+    canvas.height = 400;
+    return true;
+  },
+
+  setPlayer(address) {
+    playerAddress = address || null;
+  },
+
+  onEnd(cb) {
+    onEndCallback = cb;
+  },
+
+  /** Fresh run: zero the state the four scripts share, then loop. */
+  start() {
+    if (!canvas || !ctx) return false;
+    cancelAnimationFrame(rafId);
+
+    state = true;
+    isDead = false;
+    angle = 0;
+    hue = 0;
+    frame = 0;
+    score = 0;
+    gamespeed = 2;
+    obstaclesArray.length = 0;
+    particlesArray.length = 0;
+    bird.reset();
+
+    if (PanicWindow) PanicWindow.style.display = "none";
+    animate();
+    return true;
+  },
+
+  /** The drop landed: everything speeds up and the panic frame comes in. */
+  enterPanic() {
+    if (!state) return;
+    gamespeed = 10;
+    if (PanicWindow) PanicWindow.style.display = "block";
+  },
+
+  stop() {
+    state = false;
+    cancelAnimationFrame(rafId);
+  },
+
+  get score() {
+    return score;
+  },
+  get running() {
+    return state;
+  },
 };

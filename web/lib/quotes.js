@@ -1,7 +1,12 @@
 export const quotes = [
-  "Careful! that beat drops very hard! 🤯",
-  "Skins coming soon...👗",
-  "Some say that cats are related to aliens 🤔",
-  "Guys, is Earth flat? 🤔",
-  "More bangers coming soon...💥",
+  "Careful — that beat drops hard.",
+  "Skins are coming to nyan.city.",
+  "Some say cats are related to aliens.",
+  "The rainbow is load-bearing.",
+  "More bangers incoming.",
+  "One wallet, one row on the board.",
 ];
+
+export function pickQuote() {
+  return quotes[Math.floor(Math.random() * quotes.length)];
+}

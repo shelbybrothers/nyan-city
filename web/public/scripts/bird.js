@@ -1,18 +1,23 @@
 const nyancatimg = new Image();
-nyancatimg.src = "../assets/cat.png";
+nyancatimg.src = "/assets/cat.png";
+
 class Bird {
   constructor() {
+    // Collision box, fixed. It is deliberately independent of the sprite's pixel
+    // size so re-cutting the art (tools/make-assets.mjs) cannot change how the
+    // game plays.
+    this.width = 40;
+    this.height = 25;
+    this.weight = 0.5;
+    this.reset();
+  }
+  reset() {
     this.x = 150;
     this.y = 200;
     this.vy = 0;
-    this.originalWidth = 800;
-    this.originalHeight = 503;
-    this.width = this.originalWidth / 20;
-    this.height = this.originalHeight / 20;
-    this.weight = 0.5;
   }
   update() {
-    let curve = Math.sin(angle) * 20;
+    const curve = Math.sin(angle) * 20;
     if (this.y > canvas.height - this.height * 3 + curve) {
       this.y = canvas.height - this.height * 3 + curve;
       this.vy = 0;
@@ -28,14 +33,19 @@ class Bird {
     if (spacePresssed && this.y > this.height * 3) this.flap();
   }
   draw() {
-    ctx.fillStyle = "red";
-    ctx.fillRect(this.x, this.y, this.width, this.height);
+    // Source rect comes from the file itself, so swapping in a differently sized
+    // sprite needs no code change. Nothing to draw until it has decoded.
+    const sw = nyancatimg.naturalWidth;
+    const sh = nyancatimg.naturalHeight;
+    if (!sw || !sh) return;
+
+    ctx.imageSmoothingEnabled = false; // pixel art: never interpolate
     ctx.drawImage(
       nyancatimg,
       0,
       0,
-      this.originalWidth,
-      this.originalHeight,
+      sw,
+      sh,
       this.x + 12,
       this.y - 8,
       this.width * 1.7,
@@ -46,4 +56,6 @@ class Bird {
     this.vy -= 1;
   }
 }
+
 const bird = new Bird();
+window.__nyanParts = (window.__nyanParts || 0) + 1;

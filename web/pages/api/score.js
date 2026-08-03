@@ -1,28 +1,29 @@
-import { Redis } from "@upstash/redis";
-
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN,
-});
+import { submitScore } from "../../lib/store";
 
 export default async function handler(req, res) {
+  if (req.method !== "POST") {
+    res.setHeader("Allow", ["POST"]);
+    return res.status(405).end(`Method ${req.method} Not Allowed`);
+  }
+
   try {
-    if (req.method === "POST") {
-      const { name, score, address } = req.body;
-      if (!name || typeof score !== "number") {
-        return res.status(400).json({ error: "Invalid input" });
-      }
+    const { name, address, score } = req.body || {};
+    const points = Number(score);
 
-      const memberKey = address || name;
-      await redis.zadd("scores", { score, member: memberKey });
-
-      return res.status(201).json({ message: "Score saved" });
+    // The board is keyed by wallet address so one player is one row; the display
+    // name is only a label. Guard both — the body arrives from the browser.
+    const member = String(address || name || "").trim().slice(0, 64);
+    if (!member) return res.status(400).json({ error: "Missing address" });
+    if (!Number.isFinite(points) || points < 0) {
+      return res.status(400).json({ error: "Invalid score" });
     }
 
-    res.setHeader("Allow", ["GET", "POST"]);
-    res.status(405).end(`Method ${req.method} Not Allowed`);
+    await submitScore({ member, score: Math.floor(points) });
+    return res.status(201).json({ ok: true });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error("[nyan.city] score:", error);
+    return res.status(500).json({ error: "Could not save that run" });
   }
 }
+
+export const config = { api: { bodyParser: { sizeLimit: "8kb" } } };

@@ -1,0 +1,201 @@
+.body {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem 3rem;
+  overflow: hidden;
+  background: radial-gradient(130% 95% at 50% 8%, var(--navy) 0%, var(--navy-deep) 58%, var(--navy-abyss) 100%);
+  color: var(--text);
+}
+
+/* Two star densities read as depth without shipping an image. */
+.stars {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: radial-gradient(1.6px 1.6px at 12% 22%, #fff 50%, transparent 51%),
+    radial-gradient(1.4px 1.4px at 78% 14%, #fff 50%, transparent 51%),
+    radial-gradient(1.2px 1.2px at 34% 68%, #cfe6ff 50%, transparent 51%),
+    radial-gradient(1.8px 1.8px at 62% 82%, #fff 50%, transparent 51%),
+    radial-gradient(1.2px 1.2px at 88% 55%, #fff 50%, transparent 51%),
+    radial-gradient(1.4px 1.4px at 22% 88%, #fff 50%, transparent 51%),
+    radial-gradient(1.1px 1.1px at 52% 34%, #cfe6ff 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 6% 58%, #fff 50%, transparent 51%);
+  opacity: 0.7;
+}
+
+/* The rainbow trail, drifting behind the card. */
+.ribbon {
+  position: absolute;
+  left: -25%;
+  top: 16%;
+  width: 150%;
+  height: 132px;
+  pointer-events: none;
+  opacity: 0.13;
+  transform: rotate(-8deg);
+  background: repeating-linear-gradient(
+    180deg,
+    #fb0201 0 22px,
+    #fd9502 22px 44px,
+    #fdfb05 44px 66px,
+    #2cfa04 66px 88px,
+    #0096fd 88px 110px,
+    #6331fd 110px 132px
+  );
+  mask-image: repeating-linear-gradient(90deg, #000 0 42px, transparent 42px 54px);
+  -webkit-mask-image: repeating-linear-gradient(90deg, #000 0 42px, transparent 42px 54px);
+  animation: drift 2.4s linear infinite;
+}
+
+@keyframes drift {
+  to {
+    transform: rotate(-8deg) translateX(-54px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ribbon {
+    animation: none;
+  }
+}
+
+.card {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
+  width: min(600px, 100%);
+  padding: 2rem 2rem 1.8rem;
+  border: 1px solid var(--panel-edge);
+  border-radius: 24px;
+  background: var(--panel);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
+  text-align: center;
+}
+
+.mark {
+  width: min(420px, 100%);
+  height: auto;
+  filter: drop-shadow(0 8px 22px rgba(198, 244, 3, 0.22));
+}
+
+.wordmark {
+  margin: 0.8rem 0 0;
+  font-size: clamp(1.35rem, 5.4vw, 2.05rem);
+  letter-spacing: 0;
+  line-height: 1.2;
+  text-shadow: 0 3px 0 rgba(0, 0, 0, 0.45);
+}
+
+.dot {
+  background: var(--rainbow);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.ticker {
+  margin: 0.6rem 0 0;
+  font-family: var(--font-display), monospace;
+  font-size: 0.82rem;
+  letter-spacing: 0.18em;
+  color: var(--green);
+}
+
+.tagline {
+  margin: 0.5rem 0 1.5rem;
+  font-size: 1.05rem;
+  color: var(--text-dim);
+}
+
+.connect {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+
+  width: min(300px, 100%);
+  padding: 0.95rem 1.5rem;
+  border: none;
+  border-radius: 999px;
+
+  font: inherit;
+  font-family: var(--font-display), monospace;
+  font-size: 0.85rem;
+  color: var(--ink);
+  background: linear-gradient(180deg, var(--green-hot) 0%, var(--green) 55%, var(--green-dim) 100%);
+  cursor: pointer;
+  transition: transform 0.16s ease, filter 0.16s ease;
+}
+
+.connect:hover:not(:disabled) {
+  transform: translateY(-2px);
+  filter: brightness(1.08);
+}
+
+.connect:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.connectIcon {
+  width: 20px;
+  height: 20px;
+}
+
+.chain {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0.9rem 0 0;
+  font-size: 0.82rem;
+  color: var(--text-faint);
+}
+
+.chainIcon {
+  width: 15px;
+  height: 15px;
+  color: var(--green);
+}
+
+.getWallet {
+  margin-top: 0.7rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--green);
+  text-decoration: underline;
+}
+
+.tokens {
+  margin-top: 1.5rem;
+  padding-top: 1.3rem;
+  border-top: 1px solid rgba(198, 244, 3, 0.14);
+  width: 100%;
+}
+
+.footer {
+  position: relative;
+  z-index: 1;
+  margin-top: 1.5rem;
+  font-size: 0.78rem;
+  color: var(--text-faint);
+  text-align: center;
+}
+
+.footer a {
+  text-decoration: underline;
+}
+
+@media only screen and (max-width: 560px) {
+  .card {
+    padding: 1.6rem 1.1rem 1.3rem;
+    border-radius: 18px;
+  }
+}

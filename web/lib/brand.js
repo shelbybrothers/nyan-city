@@ -21,10 +21,10 @@ export const BRAND = {
   // Paste the contract address here the moment it exists. Empty string ⇒ every
   // CA chip in the UI renders "updating…" instead of a copyable address, and the
   // Buy button goes into its own "updating…" state. Nothing else to change.
-  ca: "",
+  ca: "0x9a70f92aeaacf484e1d468074433d734e6a87777",
 
   // Explicit buy URL. Leave '' to derive it from the CA (see BUY_URL below).
-  buy: "",
+  buy: "https://gmgn.ai/robinhood/token/0x9a70f92aeaacf484e1d468074433d734e6a87777",
 };
 
 /** `$NYAN` — the ticker with its sigil, for display. */

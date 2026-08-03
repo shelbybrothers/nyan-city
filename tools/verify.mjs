@@ -28,6 +28,9 @@ const CHROME =
 let passed = 0;
 const failures = [];
 
+// Filled in by staticChecks, read by the HTTP and browser passes.
+const brandState = { ca: "", buy: "" };
+
 function check(name, ok, detail = "") {
   if (ok) {
     passed++;
@@ -58,6 +61,17 @@ function staticChecks() {
   check("brand.js names nyan.city", brand.includes('name: "nyan.city"'));
   check("brand.js ticker is NYAN", brand.includes('ticker: "NYAN"'));
   check("brand.js X points at nyancitycoin", brand.includes("x.com/nyancitycoin"));
+
+  // Whether a CA is set changes what several surfaces render, so read it once
+  // here and let the rest of the suite branch on it.
+  const caMatch = brand.match(/\n\s*ca:\s*"([^"]*)"/);
+  const CA = caMatch ? caMatch[1] : "";
+  const buyMatch = brand.match(/\n\s*buy:\s*"([^"]*)"/);
+  const BUY = buyMatch ? buyMatch[1] : "";
+  check("a CA is either a 0x address or empty", CA === "" || /^0x[0-9a-fA-F]{40}$/.test(CA), CA);
+  check("a buy link is either https or empty", BUY === "" || BUY.startsWith("https://"), BUY);
+  brandState.ca = CA;
+  brandState.buy = BUY;
 
   // The whole point of lib/brand.js is that nothing else hardcodes the handle,
   // the ticker string or the contract address.
@@ -337,9 +351,24 @@ async function browserChecks() {
       "landing renders the connect button",
       Boolean(await evaluate('!!document.querySelector(\'[data-testid="connect"]\')'))
     );
+    const caChip = await evaluate(
+      'document.querySelector(\'[data-testid="chip-ca"]\')?.textContent || ""'
+    );
     check(
-      "the CA chip says updating until a CA exists",
-      /updating/.test(await evaluate('document.querySelector(\'[data-testid="chip-ca"]\')?.textContent || ""'))
+      brandState.ca ? "the CA chip shows the contract" : "the CA chip says updating",
+      brandState.ca
+        ? caChip.includes(brandState.ca.slice(0, 6)) && caChip.includes(brandState.ca.slice(-4))
+        : /updating/.test(caChip),
+      caChip
+    );
+
+    const buyHref = await evaluate(
+      'document.querySelector(\'[data-testid="chip-buy"]\')?.href || ""'
+    );
+    check(
+      brandState.buy ? "the Buy chip links out" : "the Buy chip says updating",
+      brandState.buy ? buyHref === brandState.buy : buyHref === "",
+      buyHref
     );
     check(
       "the X chip points at the right handle",

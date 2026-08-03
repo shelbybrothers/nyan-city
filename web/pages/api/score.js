@@ -1,4 +1,5 @@
 import { submitScore } from "../../lib/store";
+import { roundIndexAt } from "../../lib/rounds";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -18,8 +19,11 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Invalid score" });
     }
 
-    await submitScore({ member, score: Math.floor(points) });
-    return res.status(201).json({ ok: true });
+    // The run belongs to the round it finished in — the server decides which,
+    // so a client clock cannot post into a round that has already paid out.
+    const round = roundIndexAt();
+    await submitScore({ round, member, score: Math.floor(points) });
+    return res.status(201).json({ ok: true, round });
   } catch (error) {
     console.error("[nyan.city] score:", error);
     return res.status(500).json({ error: "Could not save that run" });

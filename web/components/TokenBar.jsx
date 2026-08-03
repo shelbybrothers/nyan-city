@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { BRAND, BUY_URL, HAS_CA, TICKER, shortCA } from "../lib/brand";
-import { ChainIcon, CheckIcon, CoinIcon, CopyIcon, XLogo } from "./Icons";
+import { ChainIcon, CheckIcon, CoinIcon, CopyIcon, GitHubLogo, XLogo } from "./Icons";
 import style from "../styles/TokenBar.module.css";
 
 /**
@@ -49,6 +49,20 @@ export default function TokenBar({ compact = false, className = "" }) {
         <XLogo className={style.icon} aria-hidden="true" />
         <span>{compact ? "X" : "Follow on X"}</span>
       </a>
+
+      {BRAND.github && (
+        <a
+          className={`${style.chip} ${style.gh}`}
+          href={BRAND.github}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={`${BRAND.name} on GitHub`}
+          data-testid="chip-github"
+        >
+          <GitHubLogo className={style.icon} aria-hidden="true" />
+          <span>{compact ? "Code" : "GitHub"}</span>
+        </a>
+      )}
 
       {BUY_URL ? (
         <a

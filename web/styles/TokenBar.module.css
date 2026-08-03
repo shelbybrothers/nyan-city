@@ -45,7 +45,8 @@
   flex: none;
 }
 
-.x:hover {
+.x:hover,
+.gh:hover {
   border-color: #ffffff;
 }
 

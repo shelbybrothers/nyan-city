@@ -193,6 +193,14 @@
   text-decoration: underline;
 }
 
+.watch {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--green);
+}
+
 @media only screen and (max-width: 560px) {
   .card {
     padding: 1.6rem 1.1rem 1.3rem;

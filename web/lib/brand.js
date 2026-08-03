@@ -15,6 +15,7 @@ export const BRAND = {
   // ── socials ───────────────────────────────────────────────────────────────
   x: "https://x.com/nyancitycoin", // X / Twitter
   tg: "", // '' hides the Telegram button
+  github: "https://github.com/nyancity-rh/nyan-economy", // '' hides the chip
 
   // ── token ─────────────────────────────────────────────────────────────────
   // Paste the contract address here the moment it exists. Empty string ⇒ every

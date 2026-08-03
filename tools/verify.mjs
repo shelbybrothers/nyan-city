@@ -110,6 +110,7 @@ async function httpChecks() {
   check('landing offers a Buy chip', html.includes('data-testid="chip-buy"'));
   check('landing offers a CA chip', html.includes('data-testid="chip-ca"'));
   check("landing names Robinhood Chain", html.includes("Robinhood Chain"));
+  check("landing links the GitHub repo", html.includes("github.com/nyancity-rh/nyan-economy"));
   check("no upstream branding survives", !/giga\s?cat|gigacat|MetaMask not found/i.test(html));
   check("og image is declared", html.includes("nyan-og.png"));
 
@@ -172,6 +173,64 @@ async function httpChecks() {
 
   const wrongVerb = await fetch(BASE + "/api/score");
   check("GET /api/score is 405", wrongVerb.status === 405, String(wrongVerb.status));
+
+  console.log("\n§4b prize pool");
+  const withPool = await (await fetch(BASE + "/api/search?count=20")).json();
+  const pool = withPool.pool;
+  check("search carries a pool", Boolean(pool));
+  check("the pool is flagged simulated", pool?.simulated === true);
+  check(
+    "the pool sits in the 0.01–0.5 ETH band",
+    pool?.total >= 0.01 && pool?.total <= 0.5,
+    String(pool?.total)
+  );
+  check("three ranks are paid", pool?.splits?.length === 3);
+  check(
+    "the splits add up to the pool",
+    Math.abs(pool.splits.reduce((n, s2) => n + s2.eth, 0) - pool.total) < 0.005
+  );
+  check(
+    "first place pays the most",
+    pool.splits[0].eth > pool.splits[1].eth && pool.splits[1].eth > pool.splits[2].eth
+  );
+  // Stable for the day, or the number flickers between SSR and hydration.
+  const again = (await (await fetch(BASE + "/api/search")).json()).pool;
+  check("the pool is stable across requests", again.total === pool.total);
+  check("search can return 20 rows", (await fetch(BASE + "/api/search?count=20")).ok);
+
+  console.log("\n§4c ten-minute rounds");
+  const round = withPool.round;
+  check("search carries a round", Boolean(round));
+  check("the round is ten minutes", round?.lengthMs === 600000, String(round?.lengthMs));
+  check(
+    "the round is wall-clock aligned",
+    round?.endsAt % 600000 === 0,
+    String(round?.endsAt)
+  );
+  check(
+    "the countdown is inside the round",
+    round?.secondsLeft > 0 && round?.secondsLeft <= 600,
+    String(round?.secondsLeft)
+  );
+  check(
+    "the round index matches the clock",
+    round?.index === Math.floor(round.now / 600000)
+  );
+  check("the previous round is settled", Array.isArray(withPool.lastRound?.winners));
+  check(
+    "a settled round is frozen",
+    JSON.stringify(
+      (await (await fetch(BASE + "/api/search")).json()).lastRound.winners
+    ) === JSON.stringify(withPool.lastRound.winners)
+  );
+  // A run is filed against the round the server is in, not one the client names.
+  const roundedPost = await fetch(BASE + "/api/score", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ address: addr, score: 9, round: 1 }),
+  });
+  const posted = await roundedPost.json();
+  check("the server picks the round", posted.round === round.index, String(posted.round));
 }
 
 // ── 3. browser: the parts that have to actually move ────────────────────────
@@ -260,7 +319,16 @@ async function cdp() {
 }
 
 async function browserChecks() {
-  console.log("\n§5 browser");
+  console.log("\n§5 watch mode");
+  const watchHtml = await (await fetch(BASE + "/watch")).text();
+  check("GET /watch is 200", (await fetch(BASE + "/watch")).status === 200);
+  check("watch mode carries the rail", watchHtml.includes('data-testid="live-board"'));
+  check("landing offers the live feed", (await (await fetch(BASE + "/")).text()).includes('href="/watch"'));
+
+  const engine = readFileSync(path.join(WEB, "public", "scripts", "main.js"), "utf8");
+  check("the engine has a pilot", engine.includes("function steer(") && engine.includes("autopilot"));
+
+  console.log("\n§6 browser");
   const { evaluate, goto, cleanup } = await cdp();
 
   try {
@@ -312,11 +380,45 @@ async function browserChecks() {
       Boolean(await evaluate('!!document.querySelector(\'[data-testid="game-address"]\')'))
     );
 
+    check(
+      "the live board is beside the arena",
+      Boolean(await evaluate('!!document.querySelector(\'[data-testid="live-board"]\')'))
+    );
+    check(
+      "the prize pool is on the rail",
+      /ETH/.test(
+        await evaluate('document.querySelector(\'[data-testid="prize-pool"]\')?.textContent || ""')
+      )
+    );
+
     await evaluate('document.querySelector(\'[data-testid="start"]\').click()');
     await sleep(2500);
     check("the run is live", Boolean(await evaluate("window.NyanGame.running")));
 
-    // Canvas must be painting, not just present.
+    // The player's own row has to appear and climb while the run is going, not
+    // only once the score has been posted.
+    const rowNow = () =>
+      evaluate(`(() => {
+        const rows = [...document.querySelectorAll('[data-testid="live-board"] li')];
+        const me = rows.find((r) => r.textContent.includes("you"));
+        return me ? Number(me.textContent.match(/(\\d+)\\s*$/)?.[1] ?? -1) : -1;
+      })()`);
+
+    check("the player appears on the live board mid-run", (await rowNow()) >= 0);
+
+    // An untouched bird dies on the first pillar it reaches, before it can score
+    // — so proving the rail climbs by playing well is not a test, it is luck.
+    // Push the engine's counter instead: what is under test is the wiring from
+    // the engine's per-pillar callback through React to the rail, not whether
+    // this harness can play a rhythm game.
+    await evaluate("score = 7");
+    let climbed = -1;
+    for (let i = 0; i < 12 && climbed < 7; i++) {
+      await sleep(250);
+      climbed = await rowNow();
+    }
+    check("the live board climbs as pillars are cleared", climbed >= 7, `row shows ${climbed}`);
+
     const painted = await evaluate(`(() => {
       const c = document.getElementById("canvas1");
       const d = c.getContext("2d").getImageData(0, 0, c.width, c.height).data;
@@ -334,6 +436,38 @@ async function browserChecks() {
 
     const over = await evaluate('!!document.querySelector(\'[data-testid="run-over"]\')');
     check("a crash ends the run and shows the overlay", Boolean(over));
+
+    // The row used to blank out here, between the run ending and the next poll.
+    check("the row survives the run ending", (await rowNow()) >= 0);
+
+    // Watch mode: no wallet, no menu, and it puts itself back on its feet.
+    await evaluate("localStorage.clear()");
+    await goto(BASE + "/watch?clean=1");
+    await sleep(3500);
+    check(
+      "watch mode starts itself",
+      Boolean(await evaluate("!!(window.NyanGame && window.NyanGame.running)"))
+    );
+    check(
+      "watch mode shows no menu",
+      !(await evaluate('!!document.querySelector(\'[data-testid="menu"]\')'))
+    );
+    check(
+      "clean mode drops the chrome",
+      !(await evaluate('!!document.querySelector(\'[data-testid="token-bar"]\')'))
+    );
+
+    // The pilot has to survive longer than a bird nobody is flying, and score.
+    await sleep(9000);
+    const flown = await evaluate("window.NyanGame.score");
+    check("the pilot clears pillars", flown >= 2, `score ${flown}`);
+
+    const boardAfter = await (await fetch(BASE + "/api/search?count=25")).json();
+    check(
+      "a watch run never reaches the board",
+      !boardAfter.scores.some((s2) => String(s2.member).toLowerCase().includes("null")),
+      JSON.stringify(boardAfter.scores.slice(0, 3))
+    );
 
     if (over) {
       const board = await (await fetch(BASE + "/api/search?count=25")).json();

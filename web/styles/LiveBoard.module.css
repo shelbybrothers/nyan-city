@@ -1,0 +1,263 @@
+.rail {
+  position: relative;
+  width: 300px;
+  flex: none;
+  align-self: flex-start;
+
+  padding: 1rem 0.9rem 0.9rem;
+  border-radius: 18px;
+  background: var(--panel);
+  backdrop-filter: blur(10px);
+  overflow: hidden;
+}
+
+/* The rainbow edge: a conic gradient rotating under a 1px inset mask, so the
+   border itself glitters without touching the content. */
+.rail::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: conic-gradient(
+    from 0deg,
+    #fb0201,
+    #fd9502,
+    #fdfb05,
+    #2cfa04,
+    #0096fd,
+    #6331fd,
+    #fb0201
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: spin 6s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.8rem;
+}
+
+.headIcon {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  color: var(--green);
+}
+
+.title {
+  margin: 0;
+  font-size: 0.78rem;
+}
+
+.sub {
+  margin: 0.2rem 0 0;
+  font-size: 0.76rem;
+  color: var(--text-faint);
+}
+
+/* ── prize pool ─────────────────────────────────────────────────────────── */
+.pool {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+
+  margin-bottom: 0.8rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid rgba(198, 244, 3, 0.28);
+  border-radius: 13px;
+  background: linear-gradient(
+    135deg,
+    rgba(198, 244, 3, 0.14),
+    rgba(99, 49, 253, 0.14),
+    rgba(0, 150, 253, 0.14)
+  );
+  background-size: 220% 220%;
+  animation: shimmer 7s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.poolLabel {
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.poolValue {
+  font-family: var(--font-display), monospace;
+  font-size: 0.95rem;
+  color: var(--green);
+  text-shadow: 0 0 14px rgba(198, 244, 3, 0.55);
+}
+
+.poolSplit {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+}
+
+.poolClock {
+  margin-top: 0.15rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #ffd76a;
+}
+
+.poolNote {
+  font-size: 0.66rem;
+  font-style: italic;
+  color: var(--text-faint);
+}
+
+/* ── rows ───────────────────────────────────────────────────────────────── */
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.22rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 52vh;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1.5rem 1fr auto auto;
+  align-items: center;
+  gap: 0.5rem;
+
+  padding: 0.34rem 0.5rem;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: rgba(1, 34, 66, 0.5);
+  font-size: 0.82rem;
+  /* Rows re-sort constantly; move them instead of teleporting them. */
+  transition: background 0.25s ease, border-color 0.25s ease;
+}
+
+.rank {
+  font-family: var(--font-display), monospace;
+  font-size: 0.6rem;
+  color: var(--text-faint);
+}
+
+.who {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.76rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.prize {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #ffd76a;
+}
+
+.score {
+  font-family: var(--font-display), monospace;
+  font-size: 0.66rem;
+  color: var(--green);
+}
+
+.podium {
+  background: rgba(2, 52, 92, 0.72);
+  border-color: rgba(255, 215, 106, 0.28);
+}
+
+.podium .rank {
+  color: #ffd76a;
+}
+
+.rank1 {
+  border-color: rgba(255, 215, 106, 0.75);
+  box-shadow: 0 0 18px rgba(255, 215, 106, 0.22);
+}
+.rank2 {
+  border-color: rgba(224, 232, 245, 0.5);
+}
+.rank3 {
+  border-color: rgba(224, 150, 90, 0.5);
+}
+
+.me {
+  border-color: rgba(198, 244, 3, 0.7);
+  background: rgba(2, 62, 100, 0.85);
+}
+
+.me .who {
+  font-family: inherit;
+  font-weight: 700;
+  color: var(--green);
+}
+
+/* The player's own row while a run is live. */
+.pulse {
+  animation: pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(198, 244, 3, 0.36);
+  }
+  50% {
+    box-shadow: 0 0 16px 2px rgba(198, 244, 3, 0.36);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rail::before,
+  .pool,
+  .pulse {
+    animation: none;
+  }
+}
+
+.empty {
+  padding: 1.2rem 0.5rem;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--text-faint);
+}
+
+.warn {
+  margin: 0.7rem 0 0;
+  font-size: 0.66rem;
+  line-height: 1.4;
+  color: var(--text-faint);
+}
+
+@media only screen and (max-width: 1080px) {
+  .rail {
+    width: min(700px, 100%);
+    align-self: stretch;
+  }
+  .list {
+    max-height: 340px;
+  }
+}

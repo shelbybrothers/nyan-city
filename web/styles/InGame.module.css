@@ -55,11 +55,29 @@
 }
 
 /* ── arena ─────────────────────────────────────────────────────────────── */
+/* Rail left, arena right. Below 1080px the rail drops under the arena rather
+   than squeezing it — the canvas is the thing you are actually looking at. */
+.layout {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 1.2rem;
+  width: 100%;
+  margin: 1.6rem 0 0;
+}
+
 .arena {
   position: relative;
   width: min(700px, 100%);
   aspect-ratio: 600 / 400;
-  margin: 1.6rem 0 0;
+  flex: none;
+}
+
+@media only screen and (max-width: 1080px) {
+  .layout {
+    flex-direction: column-reverse;
+    align-items: center;
+  }
 }
 
 .canvas1 {

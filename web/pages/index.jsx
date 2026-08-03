@@ -90,6 +90,9 @@ export default function Landing() {
         </div>
 
         <footer className={style.footer}>
+          <a className={style.watch} href="/watch">
+            Watch the live feed
+          </a>
           <span>
             Rhythm engine forked from{" "}
             <a

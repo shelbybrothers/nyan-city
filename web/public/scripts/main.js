@@ -25,6 +25,9 @@ let gamespeed = 2;
 // Set by React from the connected wallet; the board is keyed on it.
 let playerAddress = null;
 let onEndCallback = null;
+let onScoreCallback = null;
+let reportedScore = -1;
+let autopilot = false;
 let rafId = 0;
 
 const background = new Image();
@@ -38,6 +41,7 @@ function animate() {
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   handleObstacles();
+  if (autopilot) steer();
 
   if (handleCollisions()) {
     isDead = true;
@@ -56,6 +60,13 @@ function animate() {
 
   handleParticles();
 
+  // One notification per pillar cleared, not one per frame — the live board
+  // re-sorts on every call.
+  if (score !== reportedScore) {
+    reportedScore = score;
+    if (typeof onScoreCallback === "function") onScoreCallback(score);
+  }
+
   rafId = requestAnimationFrame(animate);
   angle += 0.12;
   hue += 10;
@@ -73,6 +84,26 @@ window.addEventListener("keydown", function (e) {
 window.addEventListener("keyup", function (e) {
   if (e.code === "Space") spacePresssed = false;
 });
+
+/**
+ * Watch-mode pilot. Aims at the middle of the next gap, biased a little high
+ * because gravity is always winning: `flap` only nudges vy by -1 a frame while
+ * the button is held, so steering late reads as steering not at all.
+ */
+function steer() {
+  let next = null;
+  for (let i = 0; i < obstaclesArray.length; i++) {
+    const o = obstaclesArray[i];
+    if (o.x + o.width < bird.x) continue;
+    if (!next || o.x < next.x) next = o;
+  }
+
+  const gapTop = next ? next.top : canvas.height * 0.3;
+  const gapBottom = next ? canvas.height - next.bottom : canvas.height * 0.7;
+  const target = (gapTop + gapBottom) / 2 - 10;
+
+  spacePresssed = bird.y + bird.height / 2 > target;
+}
 
 // ── collision ───────────────────────────────────────────────────────────────
 function handleCollisions() {
@@ -142,6 +173,17 @@ window.NyanGame = {
     onEndCallback = cb;
   },
 
+  /** Fires with the new total each time a pillar is cleared. */
+  onScore(cb) {
+    onScoreCallback = cb;
+  },
+
+  /** Hand the controls to the pilot — watch mode only. */
+  autopilot(on) {
+    autopilot = Boolean(on);
+    if (!autopilot) spacePresssed = false;
+  },
+
   /** Fresh run: zero the state the four scripts share, then loop. */
   start() {
     if (!canvas || !ctx) return false;
@@ -153,6 +195,7 @@ window.NyanGame = {
     hue = 0;
     frame = 0;
     score = 0;
+    reportedScore = -1;
     gamespeed = 2;
     obstaclesArray.length = 0;
     particlesArray.length = 0;

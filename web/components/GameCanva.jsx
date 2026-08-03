@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import Script from "next/script";
 import { useCallback, useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
+import LiveBoard from "./LiveBoard";
 import TokenBar from "./TokenBar";
 import { ExitIcon, PlayIcon, TrophyIcon, XLogo } from "./Icons";
 import { CatMark } from "./Logo";
@@ -17,7 +18,13 @@ import style from "../styles/InGame.module.css";
 // arrival order is not guaranteed.
 const PART_COUNT = 3;
 
-const GameCanva = ({ address }) => {
+/**
+ * `watch` is the 24h stream mode: the pilot flies, the run restarts itself, and
+ * nothing is ever posted to the board (there is no wallet behind it, so a watch
+ * run cannot take a podium spot from a real player). `clean` strips the chrome
+ * down to the arena and the rail for OBS.
+ */
+const GameCanva = ({ address, watch = false, clean = false }) => {
   const router = useRouter();
   const canvasRef = useRef(null);
   const panicRef = useRef(null);
@@ -29,6 +36,9 @@ const GameCanva = ({ address }) => {
   const [lastScore, setLastScore] = useState(0);
   const [nowPlaying, setNowPlaying] = useState(null);
   const [quote, setQuote] = useState("");
+  const [liveScore, setLiveScore] = useState(0);
+  const restartTimer = useRef(null);
+  const startRef = useRef(null);
 
   useEffect(() => setQuote(pickQuote()), []);
 
@@ -61,18 +71,28 @@ const GameCanva = ({ address }) => {
     const game = window.NyanGame;
     game.mount(canvasRef.current, panicRef.current);
     game.setPlayer(address || null);
+    game.autopilot(watch);
+    game.onScore(setLiveScore);
     game.onEnd((final) => {
       stopAudio();
+      setLiveScore(final);
       setLastScore(final);
       setPhase("over");
+      if (watch) {
+        clearTimeout(restartTimer.current);
+        restartTimer.current = setTimeout(() => startRef.current?.(), 2200);
+      }
     });
 
     return () => {
+      clearTimeout(restartTimer.current);
+      game.autopilot(false);
+      game.onScore(null);
       game.onEnd(null);
       game.stop();
       stopAudio();
     };
-  }, [engineReady, address, stopAudio]);
+  }, [engineReady, address, watch, stopAudio]);
 
   const startRun = useCallback(() => {
     const game = window.NyanGame;
@@ -97,9 +117,20 @@ const GameCanva = ({ address }) => {
     dropTimer.current = setTimeout(() => game.enterPanic(), track.dropMs);
 
     setLastScore(0);
+    setLiveScore(0);
     setPhase("running");
     game.start();
   }, [stopAudio]);
+
+  // startRun is referenced from the onEnd closure above, which is registered
+  // once; the ref keeps that closure pointing at the current one.
+  useEffect(() => {
+    startRef.current = startRun;
+  }, [startRun]);
+
+  useEffect(() => {
+    if (watch && engineReady && phase === "menu") startRun();
+  }, [watch, engineReady, phase, startRun]);
 
   const leave = useCallback(() => {
     window.NyanGame?.stop();
@@ -115,7 +146,8 @@ const GameCanva = ({ address }) => {
       <Script src="/scripts/particles.js" strategy="afterInteractive" />
       <Script src="/scripts/obstacle.js" strategy="afterInteractive" />
 
-      <div className={style.stage}>
+      <div className={`${style.stage} ${clean ? style.clean : ""}`}>
+        {!clean && (
         <header className={style.hud}>
           <div className={style.hudLeft}>
             <CatMark width={68} className={style.hudMark} />
@@ -128,77 +160,96 @@ const GameCanva = ({ address }) => {
           </div>
           <TokenBar compact className={style.hudTokens} />
         </header>
+        )}
 
-        <div className={style.arena}>
-          <canvas className={style.canvas1} id="canvas1" ref={canvasRef} />
-          <div className={style.box} id="box" ref={panicRef} />
+        <div className={style.layout}>
+          <LiveBoard
+            address={address}
+            liveScore={liveScore}
+            running={phase === "running"}
+          />
 
-          {phase === "menu" && (
-            <div className={style.overlay} data-testid="menu">
-              <p className={style.quote}>&ldquo;{quote}&rdquo;</p>
-              <button
-                className={style.primary}
-                onClick={startRun}
-                disabled={!engineReady}
-                data-testid="start"
-              >
-                <PlayIcon className={style.btnIcon} aria-hidden="true" />
-                {engineReady ? "Play" : "Loading…"}
-              </button>
-              <p className={style.hint}>
-                Hold <kbd>SPACE</kbd> to climb. The drop hits mid-track.
-              </p>
-              <div className={style.row}>
-                <button className={style.ghost} onClick={() => router.push("/leaderboard")}>
-                  <TrophyIcon className={style.btnIcon} aria-hidden="true" />
-                  Leaderboard
-                </button>
-                <a
-                  className={style.ghost}
-                  href={BRAND.x}
-                  target="_blank"
-                  rel="noopener noreferrer"
+          <div className={style.arena}>
+            <canvas className={style.canvas1} id="canvas1" ref={canvasRef} />
+            <div className={style.box} id="box" ref={panicRef} />
+
+            {phase === "menu" && !watch && (
+              <div className={style.overlay} data-testid="menu">
+                <p className={style.quote}>&ldquo;{quote}&rdquo;</p>
+                <button
+                  className={style.primary}
+                  onClick={startRun}
+                  disabled={!engineReady}
+                  data-testid="start"
                 >
-                  <XLogo className={style.btnIcon} aria-hidden="true" />
-                  Follow
-                </a>
-                <button className={style.ghost} onClick={leave}>
-                  <ExitIcon className={style.btnIcon} aria-hidden="true" />
-                  Lobby
+                  <PlayIcon className={style.btnIcon} aria-hidden="true" />
+                  {engineReady ? "Play" : "Loading…"}
                 </button>
+                <p className={style.hint}>
+                  Hold <kbd>SPACE</kbd> to climb. The drop hits mid-track.
+                </p>
+                <div className={style.row}>
+                  <button className={style.ghost} onClick={() => router.push("/leaderboard")}>
+                    <TrophyIcon className={style.btnIcon} aria-hidden="true" />
+                    Leaderboard
+                  </button>
+                  <a
+                    className={style.ghost}
+                    href={BRAND.x}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <XLogo className={style.btnIcon} aria-hidden="true" />
+                    Follow
+                  </a>
+                  <button className={style.ghost} onClick={leave}>
+                    <ExitIcon className={style.btnIcon} aria-hidden="true" />
+                    Lobby
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {phase === "over" && (
-            <div className={style.overlay} data-testid="run-over">
-              <p className={style.overTitle}>Run over</p>
-              <p className={style.overScore}>
-                {lastScore} <span>pts</span>
-              </p>
-              <p className={style.hint}>
-                {address
-                  ? "Filed under your wallet."
-                  : "Connect a wallet to get on the board."}
-              </p>
-              <button className={style.primary} onClick={startRun} data-testid="again">
-                <PlayIcon className={style.btnIcon} aria-hidden="true" />
-                Again
-              </button>
-              <div className={style.row}>
-                <button className={style.ghost} onClick={() => router.push("/leaderboard")}>
-                  <TrophyIcon className={style.btnIcon} aria-hidden="true" />
-                  Leaderboard
+            {phase === "over" && !watch && (
+              <div className={style.overlay} data-testid="run-over">
+                <p className={style.overTitle}>Run over</p>
+                <p className={style.overScore}>
+                  {lastScore} <span>pts</span>
+                </p>
+                <p className={style.hint}>
+                  {address
+                    ? "Filed under your wallet."
+                    : "Connect a wallet to get on the board."}
+                </p>
+                <button className={style.primary} onClick={startRun} data-testid="again">
+                  <PlayIcon className={style.btnIcon} aria-hidden="true" />
+                  Again
                 </button>
-                <button className={style.ghost} onClick={leave}>
-                  <ExitIcon className={style.btnIcon} aria-hidden="true" />
-                  Lobby
-                </button>
+                <div className={style.row}>
+                  <button className={style.ghost} onClick={() => router.push("/leaderboard")}>
+                    <TrophyIcon className={style.btnIcon} aria-hidden="true" />
+                    Leaderboard
+                  </button>
+                  <button className={style.ghost} onClick={leave}>
+                    <ExitIcon className={style.btnIcon} aria-hidden="true" />
+                    Lobby
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+            {watch && phase === "over" && (
+              <div className={`${style.overlay} ${style.interlude}`} data-testid="watch-interlude">
+                <p className={style.overTitle}>Run over</p>
+                <p className={style.overScore}>
+                  {lastScore} <span>pts</span>
+                </p>
+                <p className={style.hint}>Next run starting…</p>
+              </div>
+            )}
+          </div>
         </div>
 
+        {!clean && (
         <footer className={style.footer}>
           {phase === "running" && nowPlaying ? (
             <span className={style.track}>Now playing — {nowPlaying}</span>
@@ -206,6 +257,7 @@ const GameCanva = ({ address }) => {
             <span className={style.track}>Above 50 pts the track goes Panic.</span>
           )}
         </footer>
+        )}
       </div>
     </>
   );

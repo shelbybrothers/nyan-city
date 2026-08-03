@@ -14,7 +14,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { readFileSync, readdirSync, statSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(HERE, "..");
@@ -212,6 +212,47 @@ async function httpChecks() {
   check("the pool is stable across requests", again.total === pool.total);
   check("search can return 20 rows", (await fetch(BASE + "/api/search?count=20")).ok);
 
+  console.log("\n§4d bot runners");
+  const botted = await (await fetch(BASE + "/api/search?count=20")).json();
+  const bots = botted.bots || [];
+  const into = 600 - botted.round.secondsLeft;
+  const expected = into < 15 ? 2 : into < 40 ? 8 : 12;
+  check(
+    "the board is populated with bots",
+    bots.length >= expected,
+    `${bots.length} at ${into}s into the round, wanted ${expected}`
+  );
+  check("every bot is labelled a bot", bots.every((b) => b.bot === true));
+  check(
+    "bot wallets look like wallets",
+    bots.every((b) => /^0x[0-9a-f]{40}$/.test(b.member))
+  );
+  check("bot wallets are all distinct", new Set(bots.map((b) => b.member)).size === bots.length);
+  check("bot scores are plausible", bots.every((b) => b.score > 0 && b.score < 200));
+  // Same round, same bots — every viewer must see one board, not their own.
+  const again2 = await (await fetch(BASE + "/api/search?count=20")).json();
+  check(
+    "the roster is identical between requests",
+    JSON.stringify(again2.bots.map((b) => b.member)) ===
+      JSON.stringify(bots.map((b) => b.member))
+  );
+  check(
+    "bot scores only ever climb",
+    again2.bots.every((b) => {
+      const before = bots.find((x) => x.member === b.member);
+      return !before || b.score >= before.score;
+    })
+  );
+  // The whole point: a generated wallet must never be able to take a payout.
+  check(
+    "no bot is in the settled winners",
+    !(withPool.lastRound.winners || []).some((w) => bots.some((b) => b.member === w.member))
+  );
+  check(
+    "bots are absent from the real board",
+    !botted.scores.some((row) => bots.some((b) => b.member === row.member))
+  );
+
   console.log("\n§4c ten-minute rounds");
   const round = withPool.round;
   check("search carries a round", Boolean(round));
@@ -339,6 +380,34 @@ async function browserChecks() {
   check("watch mode carries the rail", watchHtml.includes('data-testid="live-board"'));
   check("landing offers the live feed", (await (await fetch(BASE + "/")).text()).includes('href="/watch"'));
 
+  const botsSrc = readFileSync(path.join(WEB, "lib", "bots.js"), "utf8");
+  check("bots are never written to the store", !/submitScore|redis|zadd/.test(botsSrc));
+
+  const { botsAt } = await import(pathToFileURL(path.join(WEB, "lib", "bots.js")).href);
+  const sample = (t) => botsAt(4242, t);
+  check("the roster is pure", JSON.stringify(sample(300)) === JSON.stringify(sample(300)));
+  check("the roster grows over a round", sample(560).length > sample(60).length);
+  check(
+    "bot bests never go backwards",
+    sample(560).every((late) => {
+      const early = sample(200).find((e) => e.member === late.member);
+      return !early || late.score >= early.score;
+    })
+  );
+  check(
+    "the board keeps moving through a round",
+    (() => {
+      let moves = 0;
+      let prev = "";
+      for (let t = 0; t <= 600; t += 1) {
+        const now = JSON.stringify(sample(t));
+        if (t && now !== prev) moves++;
+        prev = now;
+      }
+      return moves >= 60;
+    })()
+  );
+
   const engine = readFileSync(path.join(WEB, "public", "scripts", "main.js"), "utf8");
   check("the engine has a pilot", engine.includes("function steer(") && engine.includes("autopilot"));
 
@@ -413,6 +482,29 @@ async function browserChecks() {
       "the live board is beside the arena",
       Boolean(await evaluate('!!document.querySelector(\'[data-testid="live-board"]\')'))
     );
+
+    const railRows = await evaluate(
+      'document.querySelectorAll(\'[data-testid="live-board"] li\').length'
+    );
+    check("the rail fills up with runners", railRows >= 3, `${railRows} rows`);
+    check(
+      "bot rows are labelled in the UI",
+      /bot/i.test(
+        await evaluate('document.querySelector(\'[data-testid="live-board"]\').textContent')
+      )
+    );
+    // The rail recomputes the roster on a one-second tick rather than waiting on
+    // the four-second poll. The countdown rides that same tick, so watching it
+    // move proves the loop is live without racing an unpredictable new best.
+    const clock = () =>
+      evaluate('document.querySelector(\'[data-testid="round-clock"]\')?.textContent || ""');
+    const t0 = await clock();
+    let ticked = false;
+    for (let i = 0; i < 6 && !ticked; i++) {
+      await sleep(500);
+      ticked = (await clock()) !== t0;
+    }
+    check("the rail counts in realtime", ticked, `${t0} -> ${await clock()}`);
     check(
       "the prize pool is on the rail",
       /ETH/.test(

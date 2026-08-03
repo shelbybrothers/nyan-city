@@ -23,7 +23,12 @@ const Leaderboard = () => {
     fetch(`/api/search?count=${TOP_N}`)
       .then((res) => (res.ok ? res.json() : { scores: [] }))
       .then((data) => {
-        if (alive) setScores(Array.isArray(data.scores) ? data.scores : []);
+        if (!alive) return;
+        const real = (data.scores || []).map((r) => ({ ...r, bot: false }));
+        const merged = [...real, ...(data.bots || [])].sort(
+          (a, b) => b.score - a.score
+        );
+        setScores(merged.slice(0, TOP_N));
       })
       .catch(() => {
         if (alive) setScores([]);
@@ -65,6 +70,7 @@ const Leaderboard = () => {
                 rank={i + 1}
                 member={entry.member}
                 score={entry.score}
+                isBot={entry.bot}
                 isMe={
                   Boolean(me) &&
                   String(entry.member).toLowerCase() === me.toLowerCase()

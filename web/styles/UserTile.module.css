@@ -71,6 +71,22 @@
   background: var(--green);
 }
 
+.bot {
+  opacity: 0.72;
+}
+
+.botTag {
+  padding: 0.1rem 0.45rem;
+  border: 1px solid rgba(234, 246, 255, 0.28);
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
 .Score {
   flex: none;
   font-family: var(--font-display), monospace;
@@ -82,7 +98,23 @@
   .Address {
     font-size: 0.85rem;
   }
-  .Score {
+  .bot {
+  opacity: 0.72;
+}
+
+.botTag {
+  padding: 0.1rem 0.45rem;
+  border: 1px solid rgba(234, 246, 255, 0.28);
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.Score {
     font-size: 0.9rem;
   }
 }

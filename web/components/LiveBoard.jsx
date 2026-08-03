@@ -4,7 +4,8 @@ import { TrophyIcon } from "./Icons";
 import { shortAddress } from "../lib/brand";
 import Payout from "./Payout";
 import { formatEth } from "../lib/prizes";
-import { formatCountdown, roundIndexAt, secondsLeft } from "../lib/rounds";
+import { formatCountdown, ROUND_MS, roundIndexAt, roundStart, secondsLeft } from "../lib/rounds";
+import { botsAt } from "../lib/bots";
 import style from "../styles/LiveBoard.module.css";
 
 const TOP_N = 20;
@@ -29,6 +30,7 @@ export default function LiveBoard({ address, liveScore = 0, running = false }) {
   const [round, setRound] = useState(null);
   const [lastRound, setLastRound] = useState(null);
   const [left, setLeft] = useState(null);
+  const [tick, setTick] = useState(0);
   const timer = useRef(null);
   const skew = useRef(0);
 
@@ -69,12 +71,23 @@ export default function LiveBoard({ address, liveScore = 0, running = false }) {
     const id = setInterval(() => {
       const now = Date.now() + skew.current;
       setLeft(secondsLeft(roundIndexAt(now), now));
+      setTick((n) => n + 1);
     }, 1000);
     return () => clearInterval(id);
   }, []);
 
   const merged = useMemo(() => {
-    const list = rows.map((r) => ({ ...r, live: false }));
+    // Real wallets come from the server. Bots are recomputed here every second
+    // from the same pure function the API uses — polling for them would make
+    // them lurch four seconds at a time instead of climbing.
+    const now = Date.now() + skew.current;
+    const index = roundIndexAt(now);
+    const into = Math.floor((now - roundStart(index)) / 1000);
+
+    const list = [
+      ...rows.map((r) => ({ ...r, live: false, bot: false })),
+      ...botsAt(index, Math.min(into, ROUND_MS / 1000)),
+    ];
 
     if (address) {
       const mine = list.find(
@@ -93,8 +106,17 @@ export default function LiveBoard({ address, liveScore = 0, running = false }) {
       }
     }
 
-    return list.sort((a, b) => b.score - a.score).slice(0, TOP_N);
-  }, [rows, address, liveScore, running]);
+    const sorted = list.sort((a, b) => b.score - a.score).slice(0, TOP_N);
+
+    // Prizes follow the top three *real* wallets wherever they land, because
+    // that is exactly who settlement pays. A bot sitting at rank 1 does not take
+    // a prize badge with it.
+    let realSeen = 0;
+    for (const row of sorted) {
+      row.payRank = row.bot ? 0 : ++realSeen <= 3 ? realSeen : 0;
+    }
+    return sorted;
+  }, [rows, address, liveScore, running, tick]);
 
   const prizeFor = (rank) => pool?.splits?.find((s) => s.rank === rank);
 
@@ -136,7 +158,7 @@ export default function LiveBoard({ address, liveScore = 0, running = false }) {
           const isMe =
             Boolean(address) &&
             String(row.member).toLowerCase() === address.toLowerCase();
-          const prize = prizeFor(rank);
+          const prize = row.payRank ? prizeFor(row.payRank) : null;
 
           return (
             <li
@@ -146,6 +168,7 @@ export default function LiveBoard({ address, liveScore = 0, running = false }) {
                 rank <= 3 ? style.podium : "",
                 style[`rank${rank}`] || "",
                 isMe ? style.me : "",
+                row.bot ? style.bot : "",
                 row.live ? style.pulse : "",
               ]
                 .filter(Boolean)
@@ -155,6 +178,7 @@ export default function LiveBoard({ address, liveScore = 0, running = false }) {
               <span className={style.rank}>{rank}</span>
               <span className={style.who} title={row.member}>
                 {isMe ? "you" : shortAddress(row.member)}
+                {row.bot && <em className={style.botTag}>bot</em>}
               </span>
               {prize && (
                 <span className={style.prize}>{formatEth(prize.eth)} Ξ</span>

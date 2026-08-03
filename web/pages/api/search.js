@@ -1,6 +1,7 @@
 import { getWinners, settleRound, storageKind, topScores } from "../../lib/store";
 import { poolForRound, prizeSplit } from "../../lib/prizes";
-import { ROUND_MS, roundEnd, roundIndexAt, secondsLeft } from "../../lib/rounds";
+import { ROUND_MS, roundEnd, roundIndexAt, roundStart, secondsLeft } from "../../lib/rounds";
+import { botsAt } from "../../lib/bots";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -27,6 +28,8 @@ export default async function handler(req, res) {
     }
 
     const scores = await topScores(index, count);
+    // Bots are generated, never stored — so settleRound above cannot pay one.
+    const bots = botsAt(index, Math.floor((now - roundStart(index)) / 1000));
 
     // The countdown is the whole point of this endpoint — never let it be cached.
     res.setHeader("Cache-Control", "no-store");
@@ -40,6 +43,7 @@ export default async function handler(req, res) {
         now,
       },
       scores,
+      bots,
       pool: { total, currency: "ETH", simulated: true, splits },
       lastRound: {
         index: previous,

@@ -215,11 +215,57 @@
   color: var(--green);
 }
 
-.pinned {
-  margin: 0;
-  padding: 0.5rem 0 0;
-  list-style: none;
-  border-top: 1px dashed rgba(198, 244, 3, 0.32);
+.you {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
+  align-items: baseline;
+  gap: 0.5rem;
+
+  margin-top: 0.55rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid rgba(198, 244, 3, 0.55);
+  border-radius: 10px;
+  background: rgba(2, 62, 100, 0.9);
+  font-size: 0.8rem;
+}
+
+.youPaid {
+  border-color: rgba(255, 215, 106, 0.8);
+  box-shadow: 0 0 18px rgba(255, 215, 106, 0.2);
+}
+
+.youLabel {
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink);
+  background: var(--green);
+}
+
+.youRank {
+  font-family: var(--font-display), monospace;
+  font-size: 0.62rem;
+  color: var(--text);
+}
+
+.youRank em {
+  font-style: normal;
+  color: var(--text-faint);
+}
+
+.youScore {
+  font-family: var(--font-display), monospace;
+  font-size: 0.62rem;
+  color: var(--green);
+}
+
+.youGap {
+  justify-self: end;
+  font-size: 0.7rem;
+  color: #ffd76a;
 }
 
 /* The player's own row while a run is live. */

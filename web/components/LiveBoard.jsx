@@ -127,12 +127,23 @@ export default function LiveBoard({ address, liveScore = 0, running = false }) {
         )
       : -1;
 
+    // What it takes to be in the money: the third real wallet's score.
+    const cut = sorted.find((r) => r.payRank === 3)?.score ?? 0;
+
     return {
       visible: sorted.slice(0, TOP_N),
-      // Outside the cut your row is pinned below the list rather than vanishing:
-      // you should always be able to see where you stand and how far away
-      // twentieth place is.
-      pinned: myIndex >= TOP_N ? sorted[myIndex] : null,
+      // Your standing, always. The list scrolls and the field runs past twenty,
+      // so neither being in the top 20 nor being outside it is any guarantee you
+      // can actually see your own row — this strip is pinned below the list and
+      // never moves.
+      you:
+        myIndex >= 0
+          ? {
+              ...sorted[myIndex],
+              of: sorted.length,
+              toCut: Math.max(0, cut - sorted[myIndex].score + 1),
+            }
+          : null,
     };
   }, [rows, address, liveScore, running, tick]);
 
@@ -204,10 +215,23 @@ export default function LiveBoard({ address, liveScore = 0, running = false }) {
         {board.visible.map((row) => Row(row))}
       </ol>
 
-      {board.pinned && (
-        <ol className={style.pinned} data-testid="you-pinned">
-          {Row(board.pinned)}
-        </ol>
+      {board.you && (
+        <div
+          className={`${style.you} ${board.you.payRank ? style.youPaid : ""}`}
+          data-testid="you-pinned"
+        >
+          <span className={style.youLabel}>you</span>
+          <span className={style.youRank}>
+            #{board.you.rank}
+            <em>/{board.you.of}</em>
+          </span>
+          <span className={style.youScore}>{board.you.score} pts</span>
+          <span className={style.youGap}>
+            {board.you.payRank
+              ? `paid ${formatEth(prizeFor(board.you.payRank)?.eth ?? 0)} Ξ`
+              : `+${board.you.toCut} to the money`}
+          </span>
+        </div>
       )}
 
       {storage === "local" && (

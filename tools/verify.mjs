@@ -525,17 +525,16 @@ async function browserChecks() {
 
     // Outside the top 20 your row must still be reachable. Pin the field full of
     // pace-setters above a zero-score player and the pinned row has to appear.
-    const pinnedShown = await evaluate(`(() => {
-      const rail = document.querySelector('[data-testid="live-board"]');
-      const rows = [...rail.querySelectorAll('li')];
-      const me = rows.find((r) => r.textContent.includes("you"));
-      const pin = rail.querySelector('[data-testid="you-pinned"]');
-      return { hasMe: !!me, hasPin: !!pin, rows: rows.length };
+    const you = await evaluate(`(() => {
+      const el = document.querySelector('[data-testid="you-pinned"]');
+      return el ? el.textContent : null;
     })()`);
+    check("the player always has a standing strip", Boolean(you), String(you));
+    check("the strip carries a rank", /#\d+\/\d+/.test(you || ""), String(you));
     check(
-      "the player always has a row",
-      pinnedShown.hasMe || pinnedShown.hasPin,
-      JSON.stringify(pinnedShown)
+      "the strip says what the money costs",
+      /to the money|paid/.test(you || ""),
+      String(you)
     );
     check(
       "the prize pool is on the rail",

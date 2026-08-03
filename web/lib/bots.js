@@ -51,16 +51,18 @@ export function rosterForRound(roundIndex, count = BOT_COUNT) {
     const rnd = mulberry32(hash(`nyan.city:bot:${roundIndex}:${i}`));
     roster.push({
       member: walletFrom(rnd),
-      // What a great run looks like for this one. The long tail is what makes a
-      // board read as real: mostly middling players, one or two who can play.
-      ceiling: Math.round(9 + Math.pow(rnd(), 1.9) * 86),
+      // What a great run looks like for this one. Deliberately modest: these
+      // are pace-setters, not a wall a real player cannot climb. The long tail
+      // is what makes a board read as real — mostly single digits, a couple who
+      // can actually play.
+      ceiling: Math.round(2 + Math.pow(rnd(), 2.3) * 24),
       // Seconds into the round before its first run. Most are already racing
       // when the round opens — they were playing the last one — or the board
       // sits nearly empty for the first minute of every round. The rest trickle
       // in so newcomers keep arriving all the way through.
       startsAt: Math.round(i % 10 < 7 ? rnd() * 12 : 30 + rnd() * 380),
       // Seconds between runs.
-      every: 3 + rnd() * 6,
+      every: 11 + rnd() * 17,
     });
   }
   return roster;
@@ -90,8 +92,8 @@ export function botsAt(roundIndex, secondsIntoRound, count = BOT_COUNT) {
       let best = 0;
       for (let k = 0; k < attempts; k++) {
         const rnd = mulberry32(hash(`${roundIndex}:${b.member}:run:${k}`));
-        // Runs improve as they warm up, and most are worse than their ceiling.
-        const warm = 0.45 + 0.55 * Math.min(1, k / 9);
+        // Runs improve as they warm up, and most fall short of the ceiling.
+        const warm = 0.3 + 0.7 * Math.min(1, k / 16);
         const run = Math.max(1, Math.round(Math.pow(rnd(), 1.55) * b.ceiling * warm));
         if (run > best) best = run;
       }

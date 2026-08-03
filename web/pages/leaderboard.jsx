@@ -70,7 +70,6 @@ const Leaderboard = () => {
                 rank={i + 1}
                 member={entry.member}
                 score={entry.score}
-                isBot={entry.bot}
                 isMe={
                   Boolean(me) &&
                   String(entry.member).toLowerCase() === me.toLowerCase()

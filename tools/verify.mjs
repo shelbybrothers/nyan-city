@@ -228,7 +228,12 @@ async function httpChecks() {
     bots.every((b) => /^0x[0-9a-f]{40}$/.test(b.member))
   );
   check("bot wallets are all distinct", new Set(bots.map((b) => b.member)).size === bots.length);
-  check("bot scores are plausible", bots.every((b) => b.score > 0 && b.score < 200));
+  // Pace-setters, not a wall: a real player has to be able to beat these.
+  check(
+    "bot scores stay small",
+    bots.every((b) => b.score > 0 && b.score <= 40),
+    `max ${Math.max(0, ...bots.map((b) => b.score))}`
+  );
   // Same round, same bots — every viewer must see one board, not their own.
   const again2 = await (await fetch(BASE + "/api/search?count=20")).json();
   check(
@@ -388,6 +393,16 @@ async function browserChecks() {
   check("the roster is pure", JSON.stringify(sample(300)) === JSON.stringify(sample(300)));
   check("the roster grows over a round", sample(560).length > sample(60).length);
   check(
+    "bots climb slowly",
+    Math.max(...sample(60).map((b) => b.score)) <= 12,
+    `top at 60s is ${Math.max(...sample(60).map((b) => b.score))}`
+  );
+  check(
+    "bots finish the round small",
+    Math.max(...sample(600).map((b) => b.score)) <= 30,
+    `top at 600s is ${Math.max(...sample(600).map((b) => b.score))}`
+  );
+  check(
     "bot bests never go backwards",
     sample(560).every((late) => {
       const early = sample(200).find((e) => e.member === late.member);
@@ -487,9 +502,11 @@ async function browserChecks() {
       'document.querySelectorAll(\'[data-testid="live-board"] li\').length'
     );
     check("the rail fills up with runners", railRows >= 3, `${railRows} rows`);
+    // The flag stays in the API — the payout logic reads it — but no row is
+    // labelled in the UI.
     check(
-      "bot rows are labelled in the UI",
-      /bot/i.test(
+      "no row is labelled a bot",
+      !/\bbot\b/i.test(
         await evaluate('document.querySelector(\'[data-testid="live-board"]\').textContent')
       )
     );
@@ -505,6 +522,21 @@ async function browserChecks() {
       ticked = (await clock()) !== t0;
     }
     check("the rail counts in realtime", ticked, `${t0} -> ${await clock()}`);
+
+    // Outside the top 20 your row must still be reachable. Pin the field full of
+    // pace-setters above a zero-score player and the pinned row has to appear.
+    const pinnedShown = await evaluate(`(() => {
+      const rail = document.querySelector('[data-testid="live-board"]');
+      const rows = [...rail.querySelectorAll('li')];
+      const me = rows.find((r) => r.textContent.includes("you"));
+      const pin = rail.querySelector('[data-testid="you-pinned"]');
+      return { hasMe: !!me, hasPin: !!pin, rows: rows.length };
+    })()`);
+    check(
+      "the player always has a row",
+      pinnedShown.hasMe || pinnedShown.hasPin,
+      JSON.stringify(pinnedShown)
+    );
     check(
       "the prize pool is on the rail",
       /ETH/.test(
